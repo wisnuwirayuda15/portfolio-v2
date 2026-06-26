@@ -1,645 +1,348 @@
-# PRD & Implementation Plan — Portfolio v2
+# PRD & Implementation Plan — Portfolio v2 (Editorial Redesign)
 
 **Owner:** Putu Wisnu Wirayuda Putra — Front-End Software Engineer, Jakarta, Indonesia
-**Status:** Ready for build
+**Status:** Redesign — supersedes v1 (dark/centered/particle direction)
 **Last updated:** 2026-06-19
+
+> **Why this rewrite.** v1 read as a generic AI-template: centered hero, particle background, uniform chip cards, thin content. v2 commits to a **light editorial / brutalist** system (refs: Cognify, Robot Art Exhibition) — oversized display type that breaks the grid, asymmetric layout with hairline rules and large index numerals, paper-and-ink palette, and **3D-heavy** interactive objects as focal points. It also adds the sections a real portfolio needs: **Featured Projects, Stats band, Tech Stack showcase, Process/Services**.
 
 ---
 
-## 0. Stack — verified against the repo (not assumed)
+## 0. Stack — verified against the repo (unchanged from v1)
 
-I read `package.json`, `src/styles.css`, `src/routes/__root.tsx`, and the `src/components/ui/` tree. The real stack differs from the brief in two ways that materially change the plan:
-
-| Brief said | Actually installed | Consequence |
+| Brief assumed | Actually installed | Consequence |
 |---|---|---|
-| "Vite **or** Next.js App Router" | **TanStack Start** (`@tanstack/react-start`) on Vite 8 + Nitro | **SSR is on.** `__root.tsx` renders the whole `<html>` document. Every WebGL/Three.js component must be client-only or the server render crashes on `window`/`document`. |
-| shadcn/ui (Radix under the hood) | shadcn/ui on **Base UI** (`@base-ui/react`) | Component APIs already generated and working. No Radix. Don't re-add primitives. |
-| TanStack Router | ✅ confirmed (`src/routes/`, `routeTree.gen.ts`) | File-based routing as-is. |
-| Tailwind CSS v4 | ✅ `@tailwindcss/vite` v4.1, oklch token system in `styles.css` | Extend existing tokens; don't restructure. |
+| Vite **or** Next.js | **TanStack Start** (`@tanstack/react-start`) on Vite 8 + Nitro | **SSR is on.** `__root.tsx` renders the `<html>` shell. All WebGL must be client-only or SSR crashes on `window`. |
+| shadcn on Radix | shadcn on **Base UI** (`@base-ui/react`) | Primitives already generated in `src/components/ui/`. Reuse; don't re-add. |
+| TanStack Router | ✅ `src/routes/`, `routeTree.gen.ts` | File-based routing as-is. |
+| Tailwind v4 | ✅ oklch token system in `styles.css` | Re-skin tokens (dark→light); keep structure. |
 
-**Already installed and reused (zero new deps):**
-`zustand` (state + persist), `next-themes`, `lucide-react` (icons), `sonner` (toasts), `vaul` (drawer), `@tanstack/react-form` + `zod` (forms), `@fontsource-variable/inter` (body font), and generated shadcn components: `button`, `card`, `sheet`, `drawer`, `switch`, `input`, `textarea`, `badge`, `separator`, `tooltip`, `sonner`, plus the `use-mobile` hook.
+**Reused (no new deps):** `zustand` (+persist), `lucide-react`, `sonner`, `vaul`, `@tanstack/react-form`+`zod`, `@fontsource-variable/inter`, `@fontsource-variable/space-grotesk`, `three`/`@react-three/fiber`/`@react-three/drei`, `motion`, and generated shadcn components.
 
-**The only packages to install** (see §10):
-`three`, `@react-three/fiber`, `@react-three/drei`, `motion`, `@fontsource-variable/space-grotesk`.
+**Reused from v1 build (infrastructure survives the re-skin):** `perf-store.ts`, `use-performance-mode.ts`, `use-scrolled.ts`, `use-active-section.ts`, `motion-wrapper.tsx`, `reveal.tsx`, `section.tsx`, the lazy/client-only/Lite-gated canvas pattern in `hero-canvas.tsx`. The visual layer (palette, typography, section layouts) and 3D content get reworked; the plumbing stays.
 
-> **Lazy decisions baked in** (each is a deliberate scope cut, flagged so reviewers see intent, not omission):
-> - **Dark-only.** The design brief makes the dark palette *the* identity. No light theme, no theme toggle — put the palette straight in `:root`. `next-themes` stays installed but unused for now. *Add a toggle when someone asks for light mode.*
-> - **Performance mode via `zustand` + `persist`**, not hand-rolled Context + `localStorage`. `zustand` is already a dependency and `persist` gives `localStorage` sync for free. The brief's `PerformanceContext` interface is honored exactly (§13) — just backed by a store instead of `createContext`. *If you genuinely want raw Context, it's ~15 extra lines; say so.*
-> - **Contact form = `mailto:`.** No backend, no `@tanstack/react-form`, no `zod` for three fields. A native `<form>` that builds a `mailto:` link is the whole feature. *Add real submission when there's an endpoint to submit to.*
-> - **reactbits.dev is copy-in, not a dependency.** Its components are pasted into `src/components/three/` (shadcn-style), so they live in our tree and get the same Lite-mode guards as everything else.
+**The only new package:** `@fontsource/space-mono` (editorial label/caption/index voice).
+
+> **Pivot from v1 (each deliberate, flagged):**
+> - **Light, not dark.** Palette flips to warm paper + ink. `next-themes` stays unused; light goes straight in `:root`, drop `<html className="dark">`.
+> - **Hairline-ruled flat panels replace liquid glass** as the primary surface. Glass is demoted to nav-on-scroll + mobile drawer only. The Performance-Mode "glass→solid" rule still applies there.
+> - **`mailto:` contact form** stays (no backend). *Add real submission when an endpoint exists.*
+> - **CSS 3D where WebGL isn't needed.** Project-card tilt = CSS `transform`, not a WebGL canvas — WebGL is reserved for the hero object, tech-stack cloud, and ambient geometry. Lazy: don't spin a renderer for a hover tilt.
 
 ---
 
 ## 1. Product goal & success criteria
 
-A single-page portfolio that reads as **futuristic, minimal, intentional** — one bold signature moment (a mouse-reactive particle hero), restrained liquid-glass surfaces everywhere else, and a hard guarantee that it stays usable on weak hardware.
+A single-page **engineer's portfolio** that reads as **editorial, intentional, human-crafted** — paper-and-ink with oversized type, asymmetric composition, and bold interactive 3D objects as the signature. It must showcase *work* (projects), prove *impact* (stats), and stay usable on weak hardware.
 
 **Done when:**
-- All seven sections (§5–§11) render with real resume content.
-- Hero particle field reacts to the cursor on desktop; degrades cleanly on mobile and in Lite Mode.
-- Performance Mode toggle works, persists across reloads, and auto-enables on low-end devices.
+- All sections (§5) render with real content from `resume.ts` (projects/stats/process included).
+- Hero 3D object is drag-rotatable + mouse-reactive on desktop; every 3D scene degrades to a static fallback on mobile and in Lite Mode.
+- 3D scenes mount only when scrolled into view and pause off-screen (no idle GPU burn).
+- Performance Mode persists and auto-enables on weak devices.
 - Lighthouse: Performance ≥ 90 (desktop, Full Mode), Accessibility ≥ 95.
-- Fully responsive 360px → 1536px+, no horizontal scroll, 44px min touch targets.
+- Responsive 360px → 1536px+, no horizontal scroll, 44px min touch targets.
 - `prefers-reduced-motion` honored everywhere.
 
 ---
 
-## 2. Design language
+## 2. Design language — light editorial / brutalist
 
-### Palette (override `:root` in `styles.css`, oklch to match existing tokens)
+The north stars are **Cognify** (huge clean grotesque, generous white space, asymmetric image row) and **Robot Art Exhibition** (cream paper, hairline-ruled multi-column panels, giant background numeral, vertical labels, mono captions, editorial marks like `©2026` / `®` / `+`).
 
-| Token | Hex (ref) | oklch | Role |
+### What makes it *not* look AI-generated
+- **Type breaks the grid.** The hero headline runs oversized and can bleed past the content margin. Tight tracking, mixed weights.
+- **Asymmetry over centering.** Off-center focal points, content hung on a 12-col grid with intentional empty cells.
+- **Hairline rules + index numerals.** 1px ink/14% rules divide editorial panels; large faint `01–06` numerals and vertical `writing-mode` labels mark sections.
+- **Mono micro-typography.** Captions, stats, dates, `©2026`, availability status — all in Space Mono, uppercase, letter-spaced.
+- **Paper grain.** A faint fixed noise overlay over the background (dropped in Lite Mode).
+- **Near-monochrome.** Ink on paper; black-block inversion is the main emphasis (black pill buttons, like Cognify). One electric accent, used *sparingly*.
+
+### Palette (oklch, light — set in `:root`, drop `.dark`)
+
+| Token | Ref | oklch | Role |
 |---|---|---|---|
-| `--background` | `#090D1A` | `oklch(0.16 0.03 265)` | deep navy base |
-| `--card` | `#0E1426` | `oklch(0.20 0.035 265)` | glass card base |
-| `--foreground` | `#E8EAF2` | `oklch(0.93 0.01 265)` | primary text |
-| `--muted-foreground` | `#8A90A8` | `oklch(0.68 0.02 265)` | secondary text |
-| `--primary` (violet) | `#7B5CF0` | `oklch(0.60 0.20 285)` | accent, CTAs |
-| `--accent` (electric blue) | `#38BDF8` | `oklch(0.78 0.13 230)` | secondary accent, links, hover |
-| `--border` | `rgba(255,255,255,0.08)` | `oklch(1 0 0 / 8%)` | glass borders |
-| `--ring` | violet | `oklch(0.60 0.20 285)` | focus rings |
+| `--background` (paper) | `#F4F2EC` | `oklch(0.96 0.006 90)` | warm off-white base |
+| `--paper-2` (raised panel) | `#EAE7DD` | `oklch(0.93 0.008 90)` | panels, cards |
+| `--foreground` (ink) | `#14130F` | `oklch(0.18 0.004 70)` | text, black blocks |
+| `--muted-foreground` | `#6B6A63` | `oklch(0.50 0.005 80)` | captions, secondary |
+| `--primary` (ink) | `#14130F` | `oklch(0.18 0.004 70)` | black pill buttons |
+| `--primary-foreground` | paper | `oklch(0.96 0.006 90)` | button text |
+| `--border` / `--rule` | — | `oklch(0.18 0.004 70 / 14%)` | hairline rules |
+| `--accent-blue` (electric) | `#2B59FF` | `oklch(0.55 0.21 262)` | links, focus, active — sparing only |
+| `--ring` | accent | `oklch(0.55 0.21 262)` | focus rings |
 
-Accent usage rule: violet→blue **gradient** for the hero headline and primary CTA; solid blue for inline links/hover. Never both at full saturation in the same element.
+shadcn semantic tokens remap: `--card → paper-2`, `--accent` (hover surface) → `ink/5%`, `--secondary → paper-2`, `--muted → paper-2`. Keep names so generated components adapt with no edits.
 
 ### Typography
+- **Display:** Space Grotesk (have it). Huge — `clamp(2.75rem, 9vw, 8rem)`, tracking tight (`-0.03em`), line-height ~0.95. Can break the content margin.
+- **Body:** Inter (have it). `text-base md:text-lg`, relaxed leading.
+- **Mono / editorial:** **Space Mono** (NEW, `@fontsource/space-mono`, 400/700). Uppercase, `tracking-[0.15em]`, small — for labels, indices, stats captions, dates, `©2026`, "AVAILABLE FOR WORK".
+- Expose `--font-mono: "Space Mono", monospace` in the `@theme` block; repoint `--font-heading` stays Space Grotesk.
 
-- **Display/headings:** Space Grotesk (`@fontsource-variable/space-grotesk`). Repoint the existing `--font-heading` token to it.
-- **Body:** Inter (already installed). Keep `--font-sans`.
-- Self-hosted via Fontsource → no CDN request, no layout shift, works offline. (Chosen over Google Fonts CDN deliberately.)
-
-```css
-/* styles.css @theme inline — change one line, add one */
---font-heading: "Space Grotesk Variable", sans-serif;  /* was var(--font-sans) */
---font-sans: "Inter Variable", sans-serif;             /* unchanged */
-```
-
-### Type scale (mobile → desktop, fluid)
-
-| Level | Class / clamp | Use |
-|---|---|---|
-| Display (hero h1) | `clamp(2.5rem, 7vw, 5.5rem)` | "Front-End Engineer." |
-| h2 (section) | `clamp(1.75rem, 4vw, 3rem)` | section titles |
-| h3 (card) | `clamp(1.125rem, 2vw, 1.5rem)` | role/company |
-| body | `text-base md:text-lg` (1rem→1.125rem) | paragraphs |
-| small | `text-sm` (0.875rem) | dates, meta |
-
-### Liquid glass — the recipe (cards, nav, modals only; never hero/full sections)
-
-Define once as CSS custom properties in `styles.css`, consume via a `.glass` utility:
-
-```css
-:root {
-  --glass-bg: oklch(1 0 0 / 4%);
-  --glass-border: oklch(1 0 0 / 8%);
-  --glass-blur: 16px;
-}
-@utility glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-}
-/* Lite Mode: blur is expensive → drop it, keep the surface */
-@utility glass-lite {
-  background: oklch(1 0 0 / 5%);
-  border: 1px solid var(--glass-border);
-}
-```
-
-Lite Mode swaps the `glass` class for `glass-lite` (no `backdrop-filter`). One className switch driven by the perf store.
+### Surfaces & detailing
+- **Editorial panel:** `bg-transparent` or `--paper-2`, separated by `border`/hairline rules — *not* glass.
+- **Glass (demoted):** only nav-on-scroll + mobile drawer; `glass`/`glass-lite` utilities from v1 retained for those two spots.
+- **Index numeral:** absolutely-positioned Space Grotesk numeral at ~`12rem`, `ink/6%`, behind section content.
+- **Vertical label:** `[writing-mode:vertical-rl]` mono caption on a section's edge.
+- **Marks:** `©2026`, `®`, `+`, `↗` used as editorial punctuation (mono).
 
 ### Motion principles
-- One signature moment (hero particles). Everything else is quiet: 150–400ms eases, short stagger on section entry.
-- No scattered/looping decorative animation outside the hero.
-- No `01 / 02 / 03` markers. Experience is chronological, so a **timeline** is allowed and used — but rendered as a connector line + dates, not numbered tags.
+- Orchestrated, restrained. Entrance: text **clip-reveal** (translateY + `clip-path` wipe) and **line-rule draw-in**; stats **count-up**; images **scale-from-95% + clip**.
+- Hero 3D: continuous slow auto-rotate + drag + mouse parallax. Other 3D: `frameloop="demand"` (renders only on interaction/in-view).
+- No looping decorative motion outside 3D. Honor reduced-motion (= Lite for motion).
+- No `01/02/03` *as gimmick* — but indices are genuine editorial structure here, so they're used as section/project markers intentionally.
 
 ---
 
 ## 3. Information architecture & routing (TanStack Router)
 
-**Single route.** This is a one-page scroll site; multi-route adds nothing.
+**Single route** (`src/routes/index.tsx`) — one-page scroll. Nav links are in-page anchors with motion-safe smooth scroll; active link tracked by `use-active-section`. No multi-route.
 
-```
-src/routes/
-  __root.tsx     # exists — add <ThemeForceDark>, <Toaster>, perf-store hydration
-  index.tsx      # the entire page: composes all sections in order
-```
+Section order (top → bottom):
 
-- Nav links are in-page anchors (`#about`, `#experience`, `#skills`, `#contact`) with smooth scroll, **not** router navigations.
-- Smooth scroll: CSS `scroll-behavior: smooth` on `html`, gated by `prefers-reduced-motion` (Tailwind v4 ships `motion-safe:`/`motion-reduce:`). No JS scroll library.
-- Active-link highlight: one `IntersectionObserver` in a `useActiveSection` hook (§12).
+| # | Section | id | New? |
+|---|---|---|---|
+| — | Navigation | — | reworked |
+| 01 | Hero | `home` | reworked |
+| 02 | Stats / Impact band | `stats` | **new** |
+| 03 | Featured Projects | `work` | **new** |
+| 04 | About | `about` | reworked |
+| 05 | Tech Stack | `stack` | reworked (was Skills) |
+| 06 | Experience | `experience` | reworked |
+| 07 | Process / Services | `process` | **new** |
+| 08 | Contact | `contact` | reworked |
+| — | Footer | — | reworked |
 
-*Skipped: a route per section, a `/resume` route, search params. Add a route only if a section ever needs a shareable URL.*
+Nav links: Work, About, Stack, Experience, Contact (Hero=logo, Process reachable via scroll).
 
 ---
 
-## 4. Component architecture
-
-**File naming: `kebab-case` everywhere** (files and folders) — matches the existing repo (`use-mobile.ts`, `dropdown-menu.tsx`). Component *exports* stay `PascalCase`; the *file* is kebab.
+## 4. Component architecture (kebab-case files, PascalCase exports)
 
 ```
 src/
   data/
-    resume.ts             # SSOT — all content as typed consts (see §4.1)
+    resume.ts              # SSOT — add `projects`, `stats`, `process` (§4.1)
   components/
     layout/
-      navbar.tsx           # sticky nav, glass-on-scroll, perf toggle (desktop)
-      mobile-nav.tsx       # <Sheet> drawer trigger + links + perf toggle (mobile)
-      footer.tsx           # minimal
-      section.tsx          # <section> wrapper: id, scroll-margin, max-width, padding
+      navbar.tsx           # editorial nav: wordmark + © + mono links + status dot + perf toggle
+      mobile-nav.tsx       # Sheet drawer (glass)
+      footer.tsx           # big background wordmark, © , links
+      section.tsx          # <section> + SectionHeading + IndexNumeral + VerticalLabel helpers
+    editorial/             # NEW — the brutalist building blocks
+      rule.tsx             # hairline divider (animatable draw-in)
+      index-numeral.tsx    # large faint background number
+      vertical-label.tsx   # writing-mode vertical mono caption
+      mono-label.tsx       # uppercase letter-spaced mono caption / ©2026 / status
+      clip-text.tsx        # heading with clip-path reveal on view
+      count-up.tsx         # number that counts up on view (Lite → instant)
     sections/
-      hero.tsx
-      about.tsx
-      experience.tsx
-      skills.tsx
-      contact.tsx
-    three/                 # all client-only; copy-in reactbits components live here too
-      particle-field.tsx   # hero signature — R3F <Points>, mouse-reactive
-      hero-canvas.tsx      # <Canvas> wrapper + ClientOnly + Lite/mobile guard
-      skills-cloud.tsx     # optional 3D tag sphere (drei <Billboard>+<Text>)
-      ambient-orb.tsx      # optional About-section float (drei <Float>+<Icosahedron>)
+      hero.tsx             # oversized headline (grid-breaking) + 3D object + mono meta
+      stats.tsx            # ruled big-number band, count-up
+      projects.tsx         # asymmetric project grid (CSS-3D tilt cards) + featured
+      about.tsx            # editorial 2-col + ambient 3D + ruled education/cert
+      tech-stack.tsx       # interactive 3D tag cloud + editorial fallback grid
+      experience.tsx       # editorial ruled list (role/company/dates grid)
+      process.tsx          # numbered editorial steps (services)
+      contact.tsx          # editorial form + info
+    three/                 # all client-only, lazy, in-view-gated, Lite/mobile-fallback
+      canvas-stage.tsx     # NEW shared wrapper: ClientOnly + in-view mount + frameloop + fallback
+      hero-object.tsx      # drag-rotate sculptural form (knot/distorted icosa, matcap)
+      tag-cloud.tsx        # 3D skill sphere (drei Billboard + Text, fibonacci dist)
+      ambient-geo.tsx      # slow floating geometry for About
       fallbacks/
-        hero-fallback.tsx   # CSS aurora gradient (Lite + mobile + reduced-motion)
-        skills-fallback.tsx # static chip grid
+        hero-fallback.tsx
+        cloud-fallback.tsx
     motion/
-      motion-wrapper.tsx   # strips animation props in Lite Mode (§13)
-      reveal.tsx           # scroll-triggered entrance (whileInView), Lite-aware
+      motion-wrapper.tsx   # (exists) strips animation in Lite Mode
+      reveal.tsx           # (exists) scroll reveal, Lite-aware
     perf/
-      perf-toggle.tsx      # the switch (role="switch"), used in nav + mobile-nav
-    ui/                    # EXISTS — shadcn/Base UI primitives, reused as-is
+      perf-toggle.tsx      # (exists) Base UI Switch, role=switch
+    glass-card.tsx         # (exists) demoted — used only by nav/drawer now
   hooks/
-    use-mobile.ts          # EXISTS
-    use-performance-mode.ts # selector hook over the zustand perf store (§13)
-    use-active-section.ts  # IntersectionObserver → active nav link
-    use-scrolled.ts        # boolean: has the user scrolled past N px (nav glass)
+    use-mobile.ts          # exists
+    use-performance-mode.ts# exists
+    use-active-section.ts  # exists
+    use-scrolled.ts        # exists
+    use-in-view.ts         # NEW — IntersectionObserver boolean, gates canvas mount
   lib/
-    perf-store.ts          # zustand store + persist + auto-detect
+    perf-store.ts          # exists
 ```
 
-### 4.1 Content SSOT — `src/data/resume.ts`
+### 4.1 SSOT additions (`src/data/resume.ts`)
 
-**All content lives in one typed TS module.** No copy hardcoded in components. Sections import `resume` and the types from here. Plain typed consts — no JSON, no runtime parse; TypeScript itself catches bad edits at compile time, and the `satisfies` operator enforces the shape while preserving literal types.
+Add to the existing typed `resume` object:
 
 ```ts
-// src/data/resume.ts — single source of truth
-
-export interface Job {
+export interface Project {
+  index: string;            // "01"
+  title: string;
+  blurb: string;
   role: string;
-  company: string;
-  location?: string;
-  start: string;          // "Dec 2024"
-  end: string;            // "Present"
-  highlights: string[];   // max 3, pre-trimmed
-  featured?: boolean;     // recent/relevant → visual emphasis
+  year: string;
+  stack: string[];
+  featured?: boolean;
+  image?: string;           // /public path; [owner to supply]
+  href?: string;            // live/case-study link; optional
 }
-export interface SkillGroup {
-  category: "Frontend" | "Backend" | "Mobile" | "Tools";
-  skills: string[];
-}
-export interface Resume {
-  identity: { name: string; title: string; location: string; email: string; phone: string; wordmark: string };
-  hero: { headline: string; subline: string };
-  about: {
-    bio: string;
-    education: { school: string; degree: string; period: string; gpa: string };
-    certification: { name: string; issuer: string; valid: string };
-  };
-  experience: Job[];
-  skills: SkillGroup[];
-  contact: { headline: string; invite: string; socials: { github: string; linkedin: string } };
-  footer: { tagline: string };
-}
+export interface Stat { value: string; label: string; }        // "150,000+" / "ACTIVE USERS"
+export interface ProcessStep { index: string; title: string; body: string; }
 
-export const resume = {
-  identity: {
-    name: "Putu Wisnu Wirayuda Putra",
-    title: "Front-End Software Engineer",
-    location: "DKI Jakarta, Indonesia",
-    email: "wisnuwirayuda15@gmail.com",
-    phone: "(+62) 812-8343-5423",
-    wordmark: "Wisnu W.",
-  },
-  hero: {
-    headline: "Front-End Engineer.",
-    subline: "I build secure, scalable web interfaces — including a large-scale LMS serving 150,000+ active users.",
-  },
-  about: {
-    bio: "I'm a front-end engineer based in Jakarta with two years of experience across ~5 production projects. I care about clean architecture, performance, and interfaces that feel effortless to use. Currently building at Coding Studio.",
-    education: { school: "Telkom University", degree: "B.Sc. Information Systems", period: "2020–2024", gpa: "3.89/4.0" },
-    certification: { name: "BNSP Web Development Certification", issuer: "National Professional Certification Board (BNSP)", valid: "Dec 2023 – Dec 2026" },
-  },
-  experience: [
-    {
-      role: "Software Engineer (Front-End)", company: "Coding Studio", location: "Bekasi",
-      start: "Dec 2024", end: "Present", featured: true,
-      highlights: [
-        "Built responsive, scalable interfaces for production apps, incl. an LMS serving 150,000+ users.",
-        "Cut page-load times by optimizing component rendering and asset loading.",
-        "Shipped features, security updates, and fixes in an agile cross-functional team.",
-      ],
-    },
-    // …remaining roles from §8, same shape
-  ],
-  skills: [
-    { category: "Frontend", skills: ["HTML", "CSS", "JavaScript", "React.js", "Next.js", "Svelte", "Vue", "Tailwind CSS", "Bootstrap", "styled-components"] },
-    { category: "Backend",  skills: ["Golang", "PHP", "Laravel", "SQL"] },
-    { category: "Mobile",   skills: ["React Native", "Flutter"] },
-    { category: "Tools",    skills: ["Linux", "Windows"] },
-  ],
-  contact: {
-    headline: "Let's build something.",
-    invite: "Open to front-end roles and freelance work. Drop a line.",
-    socials: { github: "[to be filled by owner]", linkedin: "[to be filled by owner]" },
-  },
-  footer: { tagline: "Built with React, Three.js & too much coffee." },
-} satisfies Resume;
+// resume.projects: Project[]   — seed from real work, mark gaps [owner]
+// resume.stats: Stat[]         — 150,000+ users · 2 yrs · 5+ projects · 60+ mentored
+// resume.process: ProcessStep[]— Discover → Build → Optimize → Ship (or Services)
 ```
 
-Import as `import { resume, type Job } from "#/data/resume"` (the `#/*` → `src/*` alias is already configured).
+> **Content note:** the résumé lists no named projects. I'll seed `projects` with the **LMS (150k users)** as the featured entry plus 2–3 derived/placeholder slots, each flagged `[owner: add title/image/link]`. Images go in `/public`; until supplied, cards render a generated monochrome gradient/numeral placeholder (no broken images).
 
-### 4.2 Key prop interfaces (TypeScript)
+### 4.2 Key new interfaces
 
 ```ts
-// layout/section.tsx
-interface SectionProps {
-  id: string;
-  className?: string;
-  children: React.ReactNode;
-}
-
-// motion/reveal.tsx
-interface RevealProps {
-  children: React.ReactNode;
-  delay?: number;         // seconds; ignored in Lite Mode
+// three/canvas-stage.tsx — the performance heart of "3D-heavy"
+interface CanvasStageProps {
+  children: React.ReactNode;       // the R3F scene
+  fallback: React.ReactNode;       // static node for Lite/mobile/SSR/out-of-view
+  interactive?: boolean;           // true → frameloop "always" (hero); false → "demand"
   className?: string;
 }
+// Behavior: ClientOnly + mounted-gate + useInView gate + useIsMobile + isLiteMode.
+// Renders <Canvas> ONLY when (mounted && inView && !mobile && !lite); else fallback.
+// Unmounts when scrolled far out of view → frees the GL context.
 
-// three/hero-canvas.tsx
-interface HeroCanvasProps {
-  /** density of particles; auto-reduced on mobile */
-  count?: number;         // default 4000 desktop / 1200 mobile
-}
-
-// perf/perf-toggle.tsx
-interface PerfToggleProps {
-  variant?: "nav" | "drawer";  // styling context only
-}
+// editorial/count-up.tsx
+interface CountUpProps { value: number; suffix?: string; className?: string; }
 ```
 
-`Job` and `SkillGroup` are declared in `resume.ts` (§4.1) and imported where needed.
+---
+
+## 5. Sections — purpose · content · layout · 3D/motion · responsive
+
+### Navigation
+- **Content:** wordmark `Wisnu W.` + mono `©2026`; links (Work, About, Stack, Experience, Contact) in mono uppercase; a mono `● AVAILABLE FOR WORK` status; Perf toggle; mobile hamburger.
+- **Layout:** transparent over hero; on scroll past 64px gets glass + bottom hairline rule. Links right, wordmark left.
+- **Responsive:** `<md` collapses to hamburger → `Sheet` drawer (glass) with stacked links + status + toggle. `≥md` full bar.
+
+### 01 · Hero
+- **Content:** mono eyebrow `FRONT-END ENGINEER — JAKARTA ©2026`; oversized headline that **breaks the grid**, e.g. `BUILDING THE / INTERFACES OF / TOMORROW` (Space Grotesk, clamp to ~8rem); one-line value prop (Inter); CTAs: black pill **`View Work ↗`** (→ `#work`) + ghost **`Get in Touch`** (→ `#contact`); scroll cue + index `01`.
+- **3D:** `hero-object.tsx` — a drag-rotatable sculptural form (knurled `TorusKnot` or distorted `Icosahedron` with a chrome/clay **matcap** for the editorial B&W look), slow auto-rotate + mouse parallax, offset to the right third (asymmetric). `interactive` canvas.
+- **Fallback:** `hero-fallback.tsx` — static monochrome render/PNG of the object (or a CSS gradient blob), shown on mobile/Lite.
+- **Layout:** headline hung on the left 8 cols, 3D object on right 4–5 cols overlapping; mono meta pinned bottom-left; hairline rule under the section.
+- **Responsive:** mobile → headline scales down but stays bold, 3D becomes a constrained static image above/below text, CTAs full-width; hero height `min(92dvh,760px)` mobile.
+
+### 02 · Stats / Impact band
+- **Content:** 4 stats from `resume.stats` — `150,000+ ACTIVE USERS`, `2 YRS EXPERIENCE`, `~5 PRODUCTION PROJECTS`, `60+ STUDENTS MENTORED`.
+- **Layout:** single ruled row, 4 cells split by vertical hairline rules; big Space Grotesk numbers (count-up on view), mono caption beneath each.
+- **Motion:** `count-up` + rule draw-in. Lite → static numbers.
+- **Responsive:** 4-col → 2×2 on `<md` → stacked on `<sm`, rules adapt.
+
+### 03 · Featured Projects (the centerpiece)
+- **Content:** `resume.projects` — featured LMS card large, others in an asymmetric grid; each shows index `0X`, title, blurb, role, year, stack tags (mono), optional `↗` link, image/placeholder.
+- **Layout:** editorial asymmetric grid — one large featured tile spanning, others varied heights (Cognify-style image row energy). Hairline rules + index numerals.
+- **3D/Motion:** **CSS-3D tilt** on hover (`transform: perspective rotateX/rotateY` tracking pointer) — cheap, no WebGL. Image clip-reveal on view; hover lifts + reveals "View ↗". (CSS-3D keeps this performant despite "3D-heavy".)
+- **Responsive:** grid → single column stack `<md`, tilt disabled on touch.
+
+### 04 · About
+- **Content:** big editorial statement (1 line, Space Grotesk), bio paragraph (Inter); education + certification as **ruled list rows** (not cards): label left, detail right, hairline between.
+- **3D:** `ambient-geo.tsx` — slow floating monochrome geometry, `frameloop="demand"`, behind/beside the text. Lite/mobile → static.
+- **Layout:** asymmetric 2-col; vertical label `ABOUT` on the edge; index `04`.
+- **Responsive:** single column `<lg`; 3D → small static accent.
+
+### 05 · Tech Stack
+- **Content:** grouped Frontend / Backend / Mobile / Tools from `resume.skills`.
+- **3D:** `tag-cloud.tsx` — interactive draggable 3D sphere of skill labels (drei `Billboard` + `Text`, fibonacci distribution, damped `OrbitControls`, auto-spin). `interactive` canvas, but in-view-gated.
+- **Fallback / Lite / mobile:** `cloud-fallback.tsx` — editorial ruled grid of categories with mono skill lists + hover.
+- **Layout:** cloud on one side, category legend (ruled list) on the other; index `05`.
+- **Responsive:** `<md` → fallback grid always (no 3D sphere on small screens).
+
+### 06 · Experience
+- **Content:** `resume.experience` as an **editorial ruled list**, not glass cards. Each row: left = role + company (Space Grotesk) and ≤3 mono highlights; right = dates + location (mono); hairline rule between rows. Featured (Coding Studio) row emphasized (heavier weight + `● CURRENT`).
+- **Motion:** rows clip-reveal + rule draw-in on scroll.
+- **Layout:** full-width ruled list, generous vertical rhythm; index `06`.
+- **Responsive:** date column moves above role on `<sm`.
+
+### 07 · Process / Services
+- **Content:** 3–4 numbered steps from `resume.process` (e.g. `01 Discover · 02 Build · 03 Optimize · 04 Ship`), each a short title + 1–2 lines. Doubles as "how I work / what I offer."
+- **Layout:** numbered editorial columns/rows with big mono indices and hairline separators.
+- **Motion:** staggered reveal.
+- **Responsive:** columns → stacked rows `<md`.
+
+### 08 · Contact
+- **Content:** oversized `LET'S BUILD / SOMETHING.`; mono invite + `● AVAILABLE FOR WORK`; email + phone (mono, `mailto:`/`tel:`); GitHub/LinkedIn `[owner]` (shown "coming soon" until set); form (name/email/message → `mailto:` + sonner toast).
+- **Layout:** editorial 2-col (statement+info left, form right); form fields are **underlined inputs** (hairline bottom rule, not boxed) for the editorial feel; black pill submit.
+- **Responsive:** stacked `<lg`, full-width fields/submit.
+
+### Footer
+- **Content:** giant faint background wordmark `WISNU`; `© 2026 Putu Wisnu Wirayuda Putra`; tagline; nav + social links (mono); "back to top ↑".
+- **Layout:** minimal, one top hairline rule.
 
 ---
 
-## 5. Navigation
+## 6. 3D strategy — making "3D-heavy" performant
 
-**Purpose:** orient + jump; carry the Performance toggle.
+Multiple WebGL canvases are the main risk. Mitigations, all enforced by `canvas-stage.tsx`:
 
-**Content:** wordmark **"Wisnu W."** (left) — chosen over bare initials "WW" because two W's read as a typo at small sizes. Links: Home, About, Experience, Skills, Contact. Perf toggle (right).
+1. **In-view gating.** `use-in-view` (IntersectionObserver) mounts a scene only when its section is near the viewport and **unmounts** it when far away → frees the GL context (browsers cap ~8–16 contexts).
+2. **`frameloop="demand"`** for non-hero scenes — they render on interaction/prop change only, not every frame. Hero uses `frameloop="always"` (it auto-rotates).
+3. **Capped `dpr={[1, 1.5]}`** and modest geometry; one shared matcap texture for the hero.
+4. **CSS-3D, not WebGL, for project-card tilt** — no renderer for hover effects.
+5. **Code-split** every scene (`React.lazy`); the `three`/drei bundle never loads in Lite Mode or on mobile.
+6. **Lite/mobile/SSR/reduced-motion → static fallbacks** for every scene.
 
-**Design:** fixed top. Transparent over hero; on scroll past ~64px the bar gets the `.glass` treatment (blur + faint border) via `useScrolled`. Height 64px.
-
-**Interactions:**
-- `useScrolled` toggles a `glass` className with a 200ms background/border transition.
-- Active link underlined in accent blue, driven by `useActiveSection`.
-- Anchor click → smooth scroll (motion-safe).
-
-**Responsive:**
-- `≥ md`: full horizontal links + toggle.
-- `< md`: wordmark + hamburger only. Hamburger opens shadcn `<Sheet>` (right slide-in) containing the links (stacked, ≥44px tap targets) and the perf toggle.
-
-**Components:** `Navbar`, `MobileNav` (`Sheet` + `Button` icon + `lucide-react` `Menu`), `PerfToggle`.
+3D inventory: hero object (interactive), tech-stack tag cloud (interactive), about ambient geometry (demand), project tilt (CSS-3D). That's a 3D presence in 4 sections while only ~2 run a live render loop at once.
 
 ---
 
-## 6. Hero — the signature moment
+## 7. Performance Mode (carries over from v1, extended)
 
-**Purpose:** immediate identity + the one bold interaction.
+`zustand`+`persist` store (`portfolio-lite-mode`), `usePerformanceMode()` → `{ isLiteMode, setIsLiteMode, toggle }`, auto-detect on first load (`prefers-reduced-motion` ∥ `hardwareConcurrency≤4` ∥ `deviceMemory≤2`). `<MotionWrapper>` strips transforms→opacity in Lite. Toggle on Base UI `Switch` (`role="switch"`, `aria-checked`, `aria-label`).
 
-**Content:**
-- h1: **"Front-End Engineer."** (gradient violet→blue on "Engineer.")
-- Subline (from resume summary): *"I build secure, scalable web interfaces — including a large-scale LMS serving 150,000+ active users."*
-- CTAs: **"View My Work"** (→ `#experience`) primary gradient button; **"Get in Touch"** (→ `#contact`) glass/outline button.
-
-**Signature background:** mouse-reactive particle field.
-- `three/ParticleField.tsx`: R3F `<Points>` + `<PointMaterial>` (from `@react-three/drei`), a few thousand points on a sphere/plane. In `useFrame`, read pointer from `useThree().pointer` and push nearby points away from / toward the cursor (parallax + gentle displacement). Slow ambient rotation.
-- Wrapped by `HeroCanvas.tsx` → `<Canvas>` inside TanStack Router's `<ClientOnly>` (SSR guard) and `React.lazy` + `Suspense` (code-split the whole Three bundle).
-- Particle `count`: 4000 desktop, 1200 mobile (via `use-mobile`).
-
-**Text reveal on load:** `motion` staggered entrance — h1 words, then subline, then CTAs (0.08s stagger). Wrapped in `MotionWrapper` so Lite Mode collapses it to a single opacity fade.
-
-**Fallback (`HeroFallback.tsx`):** animated CSS conic/radial aurora gradient with blur — no WebGL. Used when: Lite Mode **OR** mobile **OR** `prefers-reduced-motion`. (Reactbits "Aurora" can be the copy-in source here, but a pure-CSS gradient is lighter and is the default.)
-
-**Responsive:**
-- Desktop: full `100dvh`, canvas full-bleed behind centered text.
-- Mobile: **height capped at `min(88dvh, 720px)`** (brief requirement — avoid overflow/perf issues), canvas replaced by `HeroFallback`. Text left-aligned, CTAs stack full-width.
-
-**Components:** `Hero`, `HeroCanvas`, `ParticleField`, `HeroFallback`, `MotionWrapper`, `Button`.
+**Lite Mode in v2:** all `canvas-stage` scenes → static fallback; paper-grain overlay removed; clip-reveals/count-up → instant; rule draw-ins → static; nav glass → solid. Content, layout, hover (CSS), and hairline rules stay.
 
 ---
 
-## 7. About
-
-**Purpose:** human context + credentials.
-
-**Content (bio, ≤3 sentences from résumé):**
-> "I'm a front-end engineer based in Jakarta with two years of experience across ~5 production projects. I care about clean architecture, performance, and interfaces that feel effortless to use. Currently building at Coding Studio."
-
-Two glass cards:
-- **Education:** Telkom University — B.Sc. Information Systems — 2020–2024 — GPA 3.89/4.0.
-- **Certification:** BNSP Web Development Certification — valid Dec 2023 – Dec 2026.
-
-**Design:** two-column glass cards beside the bio. Optional `AmbientOrb` (drei `<Float>` + `<Icosahedron>` + `MeshDistortMaterial`) floating subtly behind — client-only, Lite/mobile-disabled, off by default until perf budget confirmed.
-
-**Interactions:** `Reveal` on scroll (fade + 16px rise, staggered). Card hover: border brightens to accent (CSS only — stays in Lite Mode).
-
-**Responsive:** `lg` two-column (bio left, stacked cards right); `< lg` single column, cards stack full-width.
-
-**Components:** `About`, `Card`, `Reveal`, optional `AmbientOrb`.
-
----
-
-## 8. Experience
-
-**Purpose:** the work, weighted toward recent/relevant.
-
-**Content:** vertical **timeline** (chronological = genuine sequence, so allowed). Resume highlights pre-trimmed to **≤3 bullets** in `resume.ts`:
-
-1. **Software Engineer (Front-End)** — Coding Studio, Bekasi — Dec 2024–Present — `featured`
-   - Built responsive, scalable interfaces for production apps, incl. an LMS serving 150,000+ users.
-   - Cut page-load times by optimizing component rendering and asset loading.
-   - Shipped features, security updates, and fixes in an agile cross-functional team.
-2. **Capstone Project Practicum Assistant** — EAD Lab, Telkom University — Mar–May 2024
-   - Mentored 60+ students on Git/GitHub and version-control practice.
-   - Authored learning materials; reviewed and graded submissions.
-3. **Web Application Development Practicum Assistant** — EAD Lab — Sep 2023–Feb 2024
-   - Taught HTML, CSS, JS, PHP, Laravel to 60+ students.
-   - Built course materials; evaluated project work.
-4. **Algorithm & Programming Practicum Assistant** — Daspro Lab — Sep 2023–Feb 2024
-   - Taught Python to 60+ students; authored and graded coursework.
-5. **Forensic Science Technician** — Pusat Laboratorium Forensik Bareskrim Polri — Jun–Aug 2023
-   - Assisted digital-evidence analysis using forensic tooling.
-6. **Social Media Designer** — ESD Lab, Telkom University — Sep 2021–Aug 2024
-   - Produced Instagram content in Figma.
-
-**Design:** connector line down the left (accent gradient), each role a glass card. **Featured card** (Coding Studio): larger, brighter border, accent glow, "Current" badge.
-
-**Interactions:** scroll-triggered reveal, cards stagger in along the timeline (`Reveal`). Lite Mode = instant visibility.
-
-**Responsive:** desktop = line on left, cards offset right; mobile = line hugs left edge, cards full-width single column.
-
-**Components:** `Experience`, `Card`, `Badge`, `Reveal`, `Separator`.
-
----
-
-## 9. Skills
-
-**Purpose:** breadth, shown visually — not a list, not progress bars.
-
-**Content:** grouped — Frontend / Backend / Mobile / Tools (from résumé).
-
-**Design (default, performant): interactive glass chip grid.** Four glass group-panels; each skill is a chip with an accent hover (lift + border glow, CSS). This is the default because it's responsive, accessible, and cheap.
-
-**Optional 3D upgrade (`SkillsCloud.tsx`):** rotating tag sphere — drei `<Billboard>` + `<Text>` per skill on a fibonacci-sphere distribution, slow auto-rotate, drag to spin (`OrbitControls`, damped). Client-only, lazy, **disabled in Lite Mode and on mobile** → falls back to the chip grid. (Reactbits has no true 3D tag sphere; "Chroma Grid"/"Magic Bento" can be copied in as a 2D alternative if the sphere is cut.)
-
-**Interactions:** chips reveal in a stagger; hover = CSS transform + glow. Sphere drags with damping.
-
-**Responsive:** grid `2xl:4 / lg:2 / base:1` columns; chips wrap. 3D sphere never renders below `md`.
-
-**Components:** `Skills`, `SkillsCloud` (opt), `SkillsFallback`, `Badge`, `Reveal`.
-
----
-
-## 10. Contact
-
-**Purpose:** invite contact, low friction.
-
-**Content:**
-- Headline: **"Let's build something."**
-- Invite: *"Open to front-end roles and freelance work. Drop a line."*
-- Direct: `wisnuwirayuda15@gmail.com` · `(+62) 812-8343-5423` (`tel:` + `mailto:` links, icon buttons).
-- Social: GitHub `[to be filled by owner]`, LinkedIn `[to be filled by owner]` — placeholders, marked in `resume.ts` → `contact.socials`.
-- **Form** (glass card): name, email, message → builds a `mailto:` and opens the user's mail client. `sonner` toast confirms.
-
-```ts
-// onSubmit — the whole feature, no backend, no form lib
-const href = `mailto:wisnuwirayuda15@gmail.com`
-  + `?subject=${encodeURIComponent(`Portfolio contact — ${name}`)}`
-  + `&body=${encodeURIComponent(`${message}\n\n— ${name} (${email})`)}`;
-window.location.href = href;
-toast.success("Opening your mail app…");
-```
-
-Native `required` + `type="email"` for validation. *Skipped `@tanstack/react-form` + `zod`: three fields and `mailto` don't need them. Add when a real backend endpoint exists.*
-
-**Responsive:** desktop = info left, form right; mobile = stacked, inputs full-width, submit full-width (≥44px).
-
-**Components:** `Contact`, `Card`, `Input`, `Textarea`, `Button`, `Label`, `sonner` toast, `lucide-react` icons.
-
----
-
-## 11. Footer
-
-Minimal: `© 2026 Putu Wisnu Wirayuda Putra` · *"Built with React, Three.js & too much coffee."* · email link. One `Separator` above. No columns.
-
-**Components:** `Footer`, `Separator`.
-
----
-
-## 12. Animation strategy
-
-| Concern | Tool | Notes |
-|---|---|---|
-| 3D / particles | `@react-three/fiber` + `drei` | hero, optional skills sphere & ambient orb |
-| Scroll-reveal entrances | `motion` `whileInView` | via `Reveal` wrapper; `viewport={{ once: true, margin: "-10%" }}` |
-| Load sequence (hero) | `motion` stagger | h1 → subline → CTAs |
-| Hover / nav glass | CSS transitions | cheap, survive Lite Mode |
-| Smooth scroll | CSS `scroll-behavior` | motion-safe only |
-
-**Scroll-trigger choice:** `motion`'s `whileInView` (it's already the animation lib; a second IntersectionObserver lib would be redundant). The lone raw `IntersectionObserver` is in `useActiveSection` for nav highlighting, where `motion` doesn't fit.
-
-**Page-load order:** nav fades in → hero h1 words stagger up → subline → CTAs → particle canvas mounts last (lazy, after first paint). Below-the-fold sections animate on scroll, never on load.
-
-**`prefers-reduced-motion`:** `Reveal` and `MotionWrapper` both read it; when set, they render final state immediately (treated identically to Lite Mode for motion purposes).
-
----
-
-## 13. Performance Mode (the §brief feature, backed by zustand)
-
-The brief specifies a `PerformanceContext` shape and a `usePerformanceMode` hook. I honor the **exact public API** but back it with a `zustand` `persist` store (already a dependency) instead of `createContext` + manual `localStorage` — fewer lines, free persistence, no provider nesting.
-
-### Public API (matches the brief)
-
-```ts
-// lib/perf-store.ts
-interface PerformanceState {
-  isLiteMode: boolean;
-  setIsLiteMode: (v: boolean) => void;
-  toggle: () => void;
-  /** true until auto-detect/hydration has run once */
-  userHasChosen: boolean;
-}
-
-// hooks/usePerformanceMode.ts
-function usePerformanceMode(): {
-  isLiteMode: boolean;
-  setIsLiteMode: (v: boolean) => void;
-  toggle: () => void;
-};
-```
-
-```ts
-// lib/perf-store.ts
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-
-export const usePerfStore = create<PerformanceState>()(
-  persist(
-    (set) => ({
-      isLiteMode: false,
-      userHasChosen: false,
-      setIsLiteMode: (v) => set({ isLiteMode: v, userHasChosen: true }),
-      toggle: () =>
-        set((s) => ({ isLiteMode: !s.isLiteMode, userHasChosen: true })),
-    }),
-    { name: "portfolio-lite-mode" }   // localStorage key per brief
-  )
-);
-
-/** Run once on mount if the user has never chosen. Heuristics → default Lite. */
-export function autoDetectLite(): boolean {
-  if (typeof window === "undefined") return false;       // SSR guard
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const fewCores = (navigator.hardwareConcurrency ?? 8) <= 4;
-  const lowMem = ((navigator as any).deviceMemory ?? 8) <= 2;  // [Inference] non-standard API
-  return reduce || fewCores || lowMem;
-  // [Inference] UA-based low-end detection is unreliable — intentionally omitted as a
-  // primary signal. The three checks above are sufficient and standards-based.
-}
-```
-
-> **SSR note:** `persist` reads `localStorage`, which doesn't exist during TanStack Start's server render. Hydrate on the client in a top-level effect in `__root.tsx`: if `!userHasChosen`, call `autoDetectLite()` and set the result. Until then render Full Mode's *static* shell to avoid hydration mismatch (canvas mounts client-side anyway).
-
-### `<MotionWrapper>` spec
-
-Wraps a `motion` element; in Lite Mode (or reduced-motion) it strips transforms/stagger/spring and leaves an opacity-only fade.
-
-```ts
-// motion/MotionWrapper.tsx
-import { motion, type MotionProps } from "motion/react";
-import { usePerformanceMode } from "#/hooks/usePerformanceMode";
-
-interface MotionWrapperProps extends MotionProps {
-  as?: keyof typeof motion;     // default "div"
-  children: React.ReactNode;
-  className?: string;
-}
-
-// Behavior:
-// - Full:  pass props through unchanged.
-// - Lite:  ignore `initial/animate/whileInView` transforms; render with
-//          { initial:{opacity:0}, animate:{opacity:1}, transition:{duration:0.2} }
-//          and NO stagger / NO transform / NO spring.
-```
-
-`Reveal` is built on `MotionWrapper` — so scroll reveals automatically simplify to instant/opacity in Lite Mode.
-
-### What Lite Mode changes (per brief)
-
-| In Lite Mode | Behavior |
+## 8. Animation tooling
+| Concern | Tool |
 |---|---|
-| Three.js / WebGL canvases | unmounted; `HeroCanvas`/`SkillsCloud`/`AmbientOrb` render their static fallback |
-| `motion` animations | opacity-only, no transform/stagger/spring (`MotionWrapper`) |
-| Glass `backdrop-filter` | `.glass` → `.glass-lite` (solid `rgba` surface, no blur) |
-| Scroll reveals | instant visibility |
-| Particle / ambient systems | not rendered |
-| **Stays active** | all content, layout, nav, CSS hover transitions, glass borders |
+| 3D objects / cloud / ambient | `@react-three/fiber` + `@react-three/drei` |
+| Clip-reveals, rule draw-in, count-up, stagger | `motion` (`motion/react`, `whileInView`) via `Reveal`/`MotionWrapper` |
+| Project-card tilt, hover | CSS transforms/transitions |
+| Smooth scroll | CSS `scroll-behavior`, motion-safe |
+| Active nav link | `use-active-section` (IntersectionObserver) |
 
-Every Three component checks `isLiteMode` (and `use-mobile`) **before** rendering heavy content — the guard lives in `HeroCanvas`/`SkillsCloud`/`AmbientOrb`, not scattered.
-
-### Toggle UI (`PerfToggle`)
-
-- Built on shadcn `Switch` (already generated). `role="switch"`, `aria-checked={isLiteMode}`, `aria-label="Toggle lite mode"`, visible focus ring (`--ring`).
-- Icons (`lucide-react`): `Zap` (Lite) ↔ `Sparkles` (Full). Label "Lite" / "Full".
-- Placement: Navbar right (desktop), top of `Sheet` drawer (mobile). Keyboard-operable (Space/Enter), 44px target.
+Page-load order: nav → hero eyebrow → headline clip-reveal (line by line) → value prop → CTAs → 3D object mounts last. Below-fold animates on scroll.
 
 ---
 
-## 14. Responsive system
-
-**Breakpoints — Tailwind v4 defaults, unchanged:** `sm 640 · md 768 · lg 1024 · xl 1280 · 2xl 1536`.
-
-**Global rules:**
-- All multi-column grids → single column below `md`.
-- Min tap target 44×44px on all interactive elements (`min-h-11 min-w-11` on icon buttons).
-- No horizontal scroll at 360px. Section padding `px-5 md:px-8 lg:px-12`, content `max-w-6xl mx-auto`.
-- 3D canvases: **never render below `md`** and never in Lite Mode → static fallback instead.
-
-**Per-section behavior:** specified inline in §5–§11 (each has a Responsive line).
+## 9. Responsive
+Tailwind v4 defaults (`sm640 md768 lg1024 xl1280 2xl1536`). Editorial grids collapse to single column `<md`. 3D canvases never render `<md` (fallback instead). 44px min touch targets. No horizontal scroll at 360px (oversized headlines use `clamp` + `overflow-hidden` on the hero so grid-breaking type never creates a scrollbar). Per-section behavior in §5.
 
 ---
 
-## 15. Performance
-
-- **Code-split Three.** `HeroCanvas`, `SkillsCloud`, `AmbientOrb` via `React.lazy` + `Suspense`; the `three`/fiber bundle never loads in Lite Mode or on mobile.
-- **Client-only WebGL.** Wrap canvases in TanStack Router `<ClientOnly>` (SSR-safe) — the server never touches `window`.
-- **Fonts:** Fontsource self-hosted, variable, `font-display: swap` (Fontsource default). No CDN, no FOIT.
-- **Images:** none planned beyond icons (SVG via `lucide-react`). If a headshot is added later: `loading="lazy"`, explicit `width`/`height`, AVIF/WebP.
-- **`prefers-reduced-motion`** short-circuits all `motion` work.
-- React Compiler is on (`babel-plugin-react-compiler`) — skip manual `useMemo`/`useCallback` micro-opt unless profiling says otherwise.
+## 10. Accessibility
+Visible focus rings (`--ring` electric blue) on all interactive elements; `aria-label` on icon-only buttons; perf toggle `role="switch"`+`aria-checked`+`aria-label`; reduced-motion = Lite for motion; semantic landmarks (`<nav>/<main>/<section aria-labelledby>/<footer>`); form `<Label>`s (underlined inputs keep visible labels); ink-on-paper contrast ≥ 7:1, accent-blue-on-paper ≥ 4.5:1. Drag-only 3D (tag cloud) is decorative — its content (skills) is also in the fallback grid, which is what assistive tech and keyboard users get.
 
 ---
 
-## 16. Styling & tokens (Tailwind v4)
-
-- Override the palette block in `src/styles.css` `:root` (§2) — keep the `.dark` block or fold it into `:root` (dark-only).
-- Repoint `--font-heading` to Space Grotesk (§2).
-- Add `--glass-*` custom properties + `glass` / `glass-lite` `@utility` (§2).
-- **shadcn components used:** `Button`, `Card`, `Sheet` (mobile nav), `Drawer` (vaul, if a bottom-sheet variant is wanted), `Input`, `Textarea`, `Label`, `Switch` (perf toggle), `Badge`, `Separator`, `Sonner` (toasts), `Tooltip`. **All already generated** — no `shadcn add` needed.
-
----
-
-## 17. Accessibility
-
-- Visible focus rings (`--ring` violet) on every interactive element — never `outline:none` without a replacement.
-- Icon-only buttons (hamburger, socials, perf toggle) carry `aria-label`.
-- Perf toggle: `role="switch"` + `aria-checked` + `aria-label="Toggle lite mode"`.
-- Reduced-motion = Lite-equivalent motion behavior.
-- Semantic landmarks: `<nav>`, `<main>`, `<section aria-labelledby>`, `<footer>`.
-- Color contrast: foreground/background and accent-on-navy verified ≥ 4.5:1 (the oklch values in §2 satisfy this; re-check any new accent-on-glass text).
-- Form inputs have associated `<Label>`s.
-
----
-
-## 18. Packages to install (the complete list)
-
+## 11. Packages to install
 ```bash
-bun add three @react-three/fiber @react-three/drei motion @fontsource-variable/space-grotesk
-bun add -d @types/three
+bun add @fontsource/space-mono
 ```
-
-> Package manager is **bun** for everything: `bun install`, `bun run dev`, `bun run build`. Don't mix in `pnpm`/`npm` — a second lockfile is the kind of thing that bites at 3am.
-
-- `three`, `@react-three/fiber`, `@react-three/drei` — 3D.
-- `motion` — Framer Motion's current package (`motion/react`). **One** animation lib, not `framer-motion` *and* `motion`.
-- `@fontsource-variable/space-grotesk` — display font, self-hosted.
-
-**Not installed / not needed:** anything to replace shadcn or TanStack Router (per brief); a separate IntersectionObserver lib (`motion` + one hook cover it); a form lib for the contact form (`mailto`); reactbits as a dependency (components are copied into `src/components/three/`).
+Everything else (three, r3f, drei, motion, space-grotesk) already installed. No reactbits dependency (copy-in if needed). No new 3D libs — matcaps ship with drei.
 
 ---
 
-## 19. Build order (suggested)
-
-1. Tokens + fonts + glass utilities in `styles.css`; force dark; `resume.ts`.
-2. `Section`, `Navbar`/`MobileNav`/`Footer`, `index.tsx` skeleton — static, no motion.
-3. `perf-store.ts`, `usePerformanceMode`, `PerfToggle`, `MotionWrapper`, `Reveal`.
-4. Sections with real content + `Reveal` + glass cards (Lite-mode-correct from the start).
-5. `HeroCanvas` + `ParticleField` + `HeroFallback` (lazy, client-only, guarded).
-6. Optional 3D (`SkillsCloud`, `AmbientOrb`) — only if perf budget allows.
-7. A11y + responsive sweep; Lighthouse; reduced-motion + Lite-mode QA.
+## 12. Build order
+1. **Re-skin tokens:** light palette in `styles.css` `:root`, drop `<html className="dark">`, add `--font-mono`/Space Mono import, paper-grain overlay, demote glass. Update Toaster to light.
+2. **Editorial primitives:** `rule`, `index-numeral`, `vertical-label`, `mono-label`, `clip-text`, `count-up`; extend `section.tsx`.
+3. **SSOT:** add `projects`, `stats`, `process` to `resume.ts`.
+4. **3D core:** `use-in-view`, `canvas-stage.tsx` (refactor `hero-canvas` into it).
+5. **Sections top→bottom:** nav → hero (+`hero-object`) → stats → projects (CSS-3D) → about (+`ambient-geo`) → tech-stack (+`tag-cloud`) → experience → process → contact → footer.
+6. **QA:** Lite Mode + reduced-motion + mobile fallbacks for every 3D scene; responsive sweep; Lighthouse; verify no horizontal scroll from grid-breaking type.
 
 ---
 
 ### Open items for the owner
-- GitHub + LinkedIn URLs (placeholders in `resume.ts` → `contact.socials`).
-- Keep optional 3D (`SkillsCloud`, `AmbientOrb`) or cut to the chip-grid/CSS fallbacks? Default plan ships the cheap fallbacks and treats 3D-beyond-hero as opt-in.
+- **Project content + images** — titles, blurbs, links, and `/public` images for Featured Projects (LMS seeded; rest placeholdered).
+- **GitHub + LinkedIn URLs** (`resume.ts → contact.socials`).
+- Confirm the single accent color (default electric blue `#2B59FF`) — or go fully monochrome.

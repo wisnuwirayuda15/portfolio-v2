@@ -1,14 +1,75 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+import { Hero } from "@/components/sections/hero";
+import { Stats } from "@/components/sections/stats";
+import { Projects } from "@/components/sections/projects";
+import { About } from "@/components/sections/about";
+import { TechStack } from "@/components/sections/tech-stack";
+import { Experience } from "@/components/sections/experience";
+import { Process } from "@/components/sections/process";
+import { Contact } from "@/components/sections/contact";
+import { MouseFollower } from "@/components/mouse-follower";
+import { ScrollCue } from "@/components/scroll-cue";
+import { SectionProgress } from "@/components/section-progress";
+import { SplashScreen } from "@/components/splash-screen";
+import { usePerformanceMode } from "@/hooks/use-performance-mode";
+import { autoDetectLite, usePerfStore } from "@/lib/perf-store";
 
 export const Route = createFileRoute("/")({ component: Home });
 
-function Home() {
+function Grain() {
+  const { isLiteMode } = usePerformanceMode();
+  if (isLiteMode) return null;
   return (
-    <div className="p-8">
-      <h1 className="text-4xl font-bold">Welcome to TanStack Start</h1>
-      <p className="mt-4 text-lg">
-        Edit <code>src/routes/index.tsx</code> to get started.
-      </p>
-    </div>
+    <div
+      aria-hidden
+      className="grain pointer-events-none fixed inset-0 z-[1] opacity-[0.035] mix-blend-multiply"
+    />
+  );
+}
+
+function Home() {
+  useEffect(() => {
+    const { userHasChosen } = usePerfStore.getState();
+    if (!userHasChosen && autoDetectLite()) {
+      usePerfStore.setState({ isLiteMode: true });
+    }
+  }, []);
+
+  // Warm the 3D bundle + GLB cache after first paint so models appear fast.
+  useEffect(() => {
+    const warm = () =>
+      import("@/components/three/model-canvas").then((m) => m.preloadModels());
+    if ("requestIdleCallback" in window) {
+      const id = (window as Window).requestIdleCallback(warm);
+      return () => (window as Window).cancelIdleCallback(id);
+    }
+    const t = setTimeout(warm, 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <>
+      <SplashScreen />
+      <Grain />
+      <MouseFollower />
+      <SectionProgress />
+      <ScrollCue />
+      <Navbar />
+      <main>
+        <Hero />
+        <Stats />
+        <Projects />
+        <About />
+        <TechStack />
+        <Experience />
+        <Process />
+        <Contact />
+      </main>
+      <Footer />
+    </>
   );
 }

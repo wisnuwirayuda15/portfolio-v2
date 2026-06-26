@@ -1,138 +1,106 @@
 # CLAUDE.md
 
-Build guidance for portfolio-v2. Full spec lives in [docs/PRD.md](docs/PRD.md) — this file is the always-loaded rules + design system.
+Build guidance for portfolio-v2. Full spec in [docs/PRD.md](docs/PRD.md). This file is the always-loaded rules + design system.
+
+**Direction: light editorial / brutalist, 3D-heavy** (refs: Cognify, Robot Art Exhibition). Paper-and-ink, oversized grid-breaking type, asymmetric layout with hairline rules + index numerals, interactive 3D objects as focal points. This supersedes the v1 dark/centered/particle direction.
 
 ## Stack (verified, do not swap)
 
-- **TanStack Start** (`@tanstack/react-start`) on **Vite 8 + Nitro** — SSR is ON. `src/routes/__root.tsx` renders the full `<html>` shell.
-- **TanStack Router** — file-based, `src/routes/`, `routeTree.gen.ts` (generated, don't hand-edit). Run `bun run generate-routes` after adding routes.
-- **shadcn/ui on Base UI** (`@base-ui/react`) — NOT Radix. Components already generated in `src/components/ui/`. Reuse them; don't re-add primitives.
-- **Tailwind CSS v4** (`@tailwindcss/vite`) — oklch token system in `src/styles.css`.
-- **TypeScript**, **Biome** (lint/format), **Vitest**.
-- **State:** `zustand` (+ `persist`). **Forms:** `@tanstack/react-form` + `zod`. **Icons:** `lucide-react`. **Toasts:** `sonner`. **Drawer:** `vaul`. **Body font:** `@fontsource-variable/inter`.
+- **TanStack Start** (`@tanstack/react-start`) on **Vite 8 + Nitro** — SSR ON. `src/routes/__root.tsx` renders the `<html>` shell.
+- **TanStack Router** — file-based, `src/routes/`, `routeTree.gen.ts` (generated; `bun run generate-routes`).
+- **shadcn/ui on Base UI** (`@base-ui/react`), NOT Radix. Components generated in `src/components/ui/` — reuse, don't re-add. Base UI buttons rendering an `<a>` need `nativeButton={false}`.
+- **Tailwind CSS v4**, **TypeScript** (`verbatimModuleSyntax` → use `import type`; `noUnusedLocals/Parameters` on), **Biome**, **Vitest**.
+- **State:** `zustand`+persist. **Forms:** `@tanstack/react-form`+`zod`. **Icons:** `lucide-react` (no brand icons — Github/Linkedin missing; use `ArrowUpRight`). **Toasts:** `sonner`. **Drawer:** `vaul`. **3D:** `three`+`@react-three/fiber`+`@react-three/drei`. **Motion:** `motion` (`motion/react`).
+- **Fonts:** Inter (body) + Space Grotesk (display) installed; **Space Mono** (`@fontsource/space-mono`) for editorial labels.
 
-## Package manager: bun (only)
+## Package manager: bun only
 
 ```bash
-bun install
-bun run dev          # vite dev, port 3000
-bun run build
-bun run check        # biome
-bun run generate-routes
-bun add <pkg>        # bun add -d <pkg> for dev deps
+bun install · bun run dev (port 3000) · bun run build · bun run check · bun run generate-routes
+bun add <pkg> · bun add -d <pkg>
 ```
-
-Never use `pnpm` or `npm` here — one lockfile, bun's.
+Never `pnpm`/`npm`.
 
 ## Conventions
 
-- **File naming: `kebab-case`** for every file and folder (`mobile-nav.tsx`, `use-performance-mode.ts`, `hero-canvas.tsx`). Matches existing `use-mobile.ts`, `dropdown-menu.tsx`.
-- **Component exports: `PascalCase`** (`export function MobileNav()`), file stays kebab.
-- **Hooks:** `use-*.ts`, export `useThing`.
-- **Imports:** use the `#/*` alias → `src/*` (configured in `package.json` `imports`). E.g. `import { portfolio } from "#/data/portfolio.schema"`.
-- Match surrounding code style; let Biome format. Don't add `useMemo`/`useCallback` by reflex — React Compiler is on (`babel-plugin-react-compiler`).
+- **File naming: `kebab-case`** (files + folders). Component **exports PascalCase**. Hooks `use-*.ts` → `useThing`.
+- **Imports:** `@/*` or `#/*` → `src/*`.
+- Match surrounding style; let Biome format. No reflexive `useMemo`/`useCallback` — React Compiler is on.
 
 ## Content is data — single source of truth
 
-**ALL copy/content lives in `src/data/resume.ts`** as typed consts. Never hardcode résumé text, names, dates, or skills in components.
+**ALL copy in `src/data/resume.ts`** as typed consts (`satisfies Resume`). Never hardcode content in components. Includes `projects`, `stats`, `process`, plus identity/about/experience/skills/contact/footer. Import `import { resume, type Project } from "#/data/resume"`. Project images live in `/public`; render a monochrome placeholder when missing (never a broken `<img>`).
 
-- `src/data/resume.ts` — exports `resume` (typed with `satisfies Resume`) plus the `Job`, `SkillGroup`, `Resume` types. Plain TS consts, no JSON, no runtime parse — TypeScript catches bad edits at compile time.
-- Components import from it: `import { resume, type Job } from "#/data/resume"`.
+## SSR rule (critical)
 
-## SSR rule (the one that bites)
+WebGL touches `window` → SSR crashes. **All Three.js / `<Canvas>` is client-only:** route everything through `three/canvas-stage.tsx` (ClientOnly + mounted-gate + in-view gate + Lite/mobile fallback). Guard any `window`/`localStorage`/`matchMedia` with `typeof window === "undefined"` or run in an effect.
 
-WebGL/Three.js touches `window`/`document` — the server render will crash. **All Three.js/`<Canvas>` components must be client-only:** wrap in TanStack Router `<ClientOnly>` + `React.lazy` + `<Suspense>`. Same for any `localStorage`/`matchMedia` access — guard with `typeof window === "undefined"` or run in an effect.
+## 3D strategy (it's "3D-heavy" — keep it performant)
+
+All scenes go through **`canvas-stage.tsx`**, which:
+- mounts a `<Canvas>` only when `mounted && inView && !mobile && !isLiteMode`, else renders the static `fallback`; **unmounts** when scrolled far out of view (frees the GL context — browsers cap ~8–16).
+- uses `frameloop="demand"` for non-hero scenes (render on interaction only); hero uses `"always"` (auto-rotates).
+- caps `dpr={[1,1.5]}`, code-splits each scene via `React.lazy`.
+- **CSS 3D (transform), not WebGL, for project-card tilt** — no renderer for hover.
+
+3D inventory: hero object (interactive, matcap), tech-stack tag cloud (interactive), about ambient geometry (demand), project tilt (CSS-3D). Every scene has a Lite/mobile/reduced-motion fallback.
 
 ## Performance Mode (core feature)
 
-A user toggle + auto-detect that strips heavy effects on weak hardware. Backed by a `zustand` `persist` store (`src/lib/perf-store.ts`, localStorage key `"portfolio-lite-mode"`), exposed via `use-performance-mode.ts` → `{ isLiteMode, setIsLiteMode, toggle }`.
+`zustand`+persist store `src/lib/perf-store.ts` (localStorage `portfolio-lite-mode`), `use-performance-mode.ts` → `{ isLiteMode, setIsLiteMode, toggle }`. Auto-detect on first load → Lite if ANY: `prefers-reduced-motion`, `hardwareConcurrency≤4`, `deviceMemory≤2`. **Treat reduced-motion as Lite for all motion.**
 
-Auto-detect (only if user never chose) defaults to Lite when ANY: `prefers-reduced-motion: reduce`, `navigator.hardwareConcurrency <= 4`, or `navigator.deviceMemory <= 2`.
+In Lite Mode: all canvas-stage scenes → static fallback; paper-grain overlay removed; clip-reveals/count-up → instant; rule draw-ins static; nav glass → solid. Content, layout, CSS hover, hairline rules stay. `<MotionWrapper>` strips transforms→opacity. Toggle = Base UI `Switch`, `role="switch"` + `aria-checked` + `aria-label="Toggle lite mode"`, 44px target, `Zap`/`Sparkles` icons.
 
-**Treat `prefers-reduced-motion` as equivalent to Lite Mode for all motion.**
+## Design system — light editorial
 
-| In Lite Mode | Behavior |
-|---|---|
-| Three.js / WebGL | unmounted → static fallback (`hero-fallback.tsx`, `skills-fallback.tsx`) |
-| `motion` animations | opacity-only, no transform / stagger / spring (via `<MotionWrapper>`) |
-| Glass `backdrop-filter` | `.glass` → `.glass-lite` (solid surface, no blur) |
-| Scroll reveals | instant visibility |
-| Particle / ambient systems | not rendered |
+**Light, not dark.** Palette in `:root` (no `.dark`, drop `<html className="dark">`). Near-monochrome ink-on-paper; black-block inversion is the main emphasis (black pill buttons); ONE electric-blue accent used sparingly (links/focus/active).
 
-Three components check `isLiteMode` (and `use-mobile`) **before** rendering heavy content — guard lives in the canvas wrapper, not scattered. `<MotionWrapper>` (`src/components/motion/motion-wrapper.tsx`) strips animation props in Lite Mode; `Reveal` is built on it.
+### Color tokens (oklch, `:root`)
+| Token | oklch | Role |
+|---|---|---|
+| `--background` (paper) | `oklch(0.96 0.006 90)` | warm off-white |
+| `--paper-2` | `oklch(0.93 0.008 90)` | panels/cards |
+| `--foreground` (ink) | `oklch(0.18 0.004 70)` | text, black blocks |
+| `--muted-foreground` | `oklch(0.50 0.005 80)` | captions |
+| `--primary` | `oklch(0.18 0.004 70)` | black pill buttons |
+| `--primary-foreground` | `oklch(0.96 0.006 90)` | button text |
+| `--border` / `--rule` | `oklch(0.18 0.004 70 / 14%)` | hairline rules |
+| `--accent-blue` | `oklch(0.55 0.21 262)` | links/focus/active — sparing |
+| `--ring` | `oklch(0.55 0.21 262)` | focus |
 
-Toggle (`perf-toggle.tsx`, on shadcn `Switch`): `role="switch"`, `aria-checked`, `aria-label="Toggle lite mode"`, visible focus ring, ≥44px target, `Zap`(Lite)/`Sparkles`(Full) icons.
-
-## Design system
-
-**Dark-only.** Palette goes straight in `:root` of `styles.css`. No theme toggle (`next-themes` installed but unused). Don't add light mode unless asked.
-
-### Color tokens (oklch, in `:root`)
-
-| Token | Ref | oklch | Role |
-|---|---|---|---|
-| `--background` | `#090D1A` | `oklch(0.16 0.03 265)` | deep navy base |
-| `--card` | `#0E1426` | `oklch(0.20 0.035 265)` | glass card base |
-| `--foreground` | `#E8EAF2` | `oklch(0.93 0.01 265)` | primary text |
-| `--muted-foreground` | `#8A90A8` | `oklch(0.68 0.02 265)` | secondary text |
-| `--primary` (violet) | `#7B5CF0` | `oklch(0.60 0.20 285)` | accent, CTAs |
-| `--accent` (blue) | `#38BDF8` | `oklch(0.78 0.13 230)` | links, hover |
-| `--border` | — | `oklch(1 0 0 / 8%)` | glass borders |
-| `--ring` | violet | `oklch(0.60 0.20 285)` | focus rings |
-
-Accent rule: violet→blue **gradient** only on hero headline + primary CTA. Solid blue for inline links/hover. Never both at full saturation in one element.
+Remap shadcn tokens: `--card→paper-2`, `--secondary/--muted→paper-2`, `--accent→ink/5%`. Keep names so generated components adapt unedited.
 
 ### Typography
+- **Display:** Space Grotesk — huge `clamp(2.75rem,9vw,8rem)`, tracking `-0.03em`, line-height ~0.95, may break the content margin.
+- **Body:** Inter.
+- **Mono:** Space Mono — uppercase, `tracking-[0.15em]`, small; labels, indices (`01`–`08`), stat captions, dates, `©2026`, `● AVAILABLE FOR WORK`. Expose `--font-mono`.
 
-- **Headings:** Space Grotesk → repoint `--font-heading: "Space Grotesk Variable", sans-serif`.
-- **Body:** Inter (`--font-sans`, unchanged).
-- Both self-hosted via Fontsource. No CDN, no Google Fonts.
+### Editorial detailing (this is what makes it not look AI-generated)
+- Type breaks the grid; asymmetry over centering.
+- 1px `--rule` hairlines divide panels (animatable draw-in).
+- Large faint background index numerals (`ink/6%`); `[writing-mode:vertical-rl]` mono section labels.
+- Editorial marks: `©2026`, `®`, `+`, `↗`.
+- Faint fixed paper-grain noise overlay (dropped in Lite Mode).
+- Surfaces = ruled flat panels, **not glass**.
 
-Fluid scale: h1 `clamp(2.5rem, 7vw, 5.5rem)` · h2 `clamp(1.75rem, 4vw, 3rem)` · h3 `clamp(1.125rem, 2vw, 1.5rem)` · body `text-base md:text-lg`.
+### Glass (demoted)
+`glass`/`glass-lite` utilities retained but used **only** for nav-on-scroll + mobile drawer. Lite swaps `glass→glass-lite` (no blur). Not a general surface.
 
-### Liquid glass (cards, nav, modals ONLY — never hero/full sections, use sparingly)
+### Motion
+Restrained, orchestrated. Clip-path text reveals, rule draw-in, count-up, image scale+clip. Hero 3D auto-rotates + drag + parallax; other 3D `frameloop="demand"`. Reduced-motion = Lite. Indices are genuine editorial structure (allowed), not gimmick.
 
-```css
-:root { --glass-bg: oklch(1 0 0 / 4%); --glass-border: oklch(1 0 0 / 8%); --glass-blur: 16px; }
-@utility glass      { background: var(--glass-bg); border: 1px solid var(--glass-border);
-                      backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); }
-@utility glass-lite { background: oklch(1 0 0 / 5%); border: 1px solid var(--glass-border); }  /* no blur */
-```
-
-Lite Mode swaps `glass` → `glass-lite`.
-
-### Motion principles
-
-- ONE signature moment: mouse-reactive particle hero. Everything else quiet (150–400ms eases, short stagger on entry).
-- No decorative looping animation outside the hero. No scattered motion.
-- No `01 / 02 / 03` section markers. Experience uses a timeline (genuine sequence) — connector line + dates, not numbered tags.
-- Scroll reveals: `motion` `whileInView`, `viewport={{ once: true }}`, via the `Reveal` wrapper.
-
-## Animation tooling
-
-| Concern | Tool |
-|---|---|
-| 3D / particles | `@react-three/fiber` + `@react-three/drei` |
-| Scroll reveals + load sequence | `motion` (`motion/react`) — the only animation lib; don't add `framer-motion` too |
-| Hover / nav glass | CSS transitions (survive Lite Mode) |
-| Smooth scroll | CSS `scroll-behavior`, motion-safe only |
-| Active nav link | one raw `IntersectionObserver` in `use-active-section.ts` |
+## Sections (top→bottom)
+Nav · 01 Hero (3D object) · 02 Stats band (count-up) · 03 Featured Projects (CSS-3D tilt) · 04 About (ambient 3D) · 05 Tech Stack (3D tag cloud) · 06 Experience (editorial ruled list) · 07 Process/Services · 08 Contact (underlined-input form) · Footer.
 
 ## Responsive
-
-Tailwind v4 default breakpoints (`sm 640 / md 768 / lg 1024 / xl 1280 / 2xl 1536`). Multi-column grids stack to single column `< md`. Min tap target 44×44px (`min-h-11 min-w-11`). No horizontal scroll at 360px. **3D canvases never render below `md`** → static fallback. Hero height capped `min(88dvh, 720px)` on mobile.
+Tailwind defaults. Editorial grids → single column `<md`. 3D never renders `<md` (fallback). 44px touch targets. No horizontal scroll at 360px (hero `overflow-hidden` so grid-breaking type can't scroll the page).
 
 ## Accessibility (non-negotiable)
-
-- Visible focus rings (`--ring`) on every interactive element. Never bare `outline: none`.
-- `aria-label` on all icon-only buttons (hamburger, socials, perf toggle).
-- Reduced-motion = Lite-equivalent motion.
-- Semantic landmarks: `<nav>`, `<main>`, `<section aria-labelledby>`, `<footer>`. Form inputs have `<Label>`s.
-- Contrast ≥ 4.5:1.
+Visible focus rings everywhere; `aria-label` on icon buttons; reduced-motion = Lite; semantic landmarks; `<Label>`s on inputs; ink-on-paper ≥7:1. Drag-only 3D is decorative — its info also lives in the fallback grid (what keyboard/AT users get).
 
 ## Scope discipline (deliberate cuts — don't "fix" unasked)
-
-- Dark-only, no theme toggle.
-- Contact form = `mailto:` link (native `<form>`, no form lib, no backend).
-- reactbits.dev components are **copied into** `src/components/three/`, not installed as a dep.
-- Optional 3D (skills sphere, ambient orb) ships behind CSS/static fallbacks by default — opt-in only.
+- Light-only, no theme toggle.
+- Contact form = `mailto:` (no backend, no form lib).
+- CSS-3D for tilt; WebGL only where it earns it.
+- Project images owner-supplied; placeholders until then.
+- reactbits = copy-in, not a dep.

@@ -1,4 +1,5 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -25,7 +26,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "Putu Wisnu Wirayuda Putra — Front-End Engineer",
+      },
+      {
+        name: "description",
+        content:
+          "Front-End Software Engineer in Jakarta. React, Next.js, and performance-focused interfaces.",
       },
     ],
     links: [
@@ -46,6 +52,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <TooltipProvider>{children}</TooltipProvider>
+        <Toaster theme="light" position="bottom-center" />
         <TanStackDevtools
           config={{
             position: "bottom-right",
