@@ -1,6 +1,27 @@
+import { usePerformanceMode } from "@/hooks/use-performance-mode";
+
+interface ModelFallbackProps {
+  image?: string;
+  alt?: string;
+}
+
 /** Shared static fallback for every 3D scene — a black sphere matching the hero.
  * Shown before reveal, in Lite Mode, and during model load. Fills its container. */
-export function ModelFallback() {
+export function ModelFallback({ image, alt = "Visual representation" }: ModelFallbackProps) {
+  const { isLiteMode } = usePerformanceMode();
+
+  if (isLiteMode && image) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <img
+          src={image}
+          alt={alt}
+          className="h-full w-full object-contain"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full w-full items-center justify-center" aria-hidden>
       <div

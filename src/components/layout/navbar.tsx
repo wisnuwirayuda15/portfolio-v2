@@ -1,5 +1,6 @@
 "use client";
 
+import { IMAGES } from "#/lib/constants";
 import { PerfToggle } from "@/components/perf/perf-toggle";
 import { resume } from "@/data/resume";
 import { useActiveSection } from "@/hooks/use-active-section";
@@ -39,7 +40,7 @@ export function Navbar() {
       >
         <a href="#home" className="flex items-center gap-2">
           <img
-            src="/logo.webp"
+            src={IMAGES.LOGO}
             alt="logo"
             className="size-7 shrink-0 object-contain"
           />

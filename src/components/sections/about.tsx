@@ -8,7 +8,7 @@ import { Reveal } from "@/components/motion/reveal";
 import { CanvasStage } from "@/components/three/canvas-stage";
 import { ModelFallback } from "@/components/three/fallbacks/model-fallback";
 import { resume } from "@/data/resume";
-import { MODELS } from "@/lib/constants";
+import { IMAGES, MODELS } from "@/lib/constants";
 import { lazy } from "react";
 
 const ModelCanvas = lazy(() =>
@@ -70,13 +70,15 @@ export function About() {
         <div className="relative lg:col-span-5">
           <IndexNumeral value="04" className="absolute -top-10 right-0" />
           <CanvasStage
-            fallback={<ModelFallback />}
+            fallback={
+              <ModelFallback
+                image={IMAGES.ABOUT}
+                alt="About 3D Model Fallback"
+              />
+            }
             className="aspect-square w-full lg:sticky lg:top-28"
           >
-            <ModelCanvas
-              url={MODELS.CLASSICAL_GREEK_SCULPTURE}
-              autoRotateSpeed={0.6}
-            />
+            <ModelCanvas url={MODELS.ABOUT} autoRotateSpeed={0.6} />
           </CanvasStage>
         </div>
       </div>

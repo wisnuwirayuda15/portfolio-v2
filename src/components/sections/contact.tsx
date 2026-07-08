@@ -9,7 +9,7 @@ import { CanvasStage } from "@/components/three/canvas-stage";
 import { ModelFallback } from "@/components/three/fallbacks/model-fallback";
 import { Button } from "@/components/ui/button";
 import { resume } from "@/data/resume";
-import { MODELS } from "@/lib/constants";
+import { IMAGES, MODELS } from "@/lib/constants";
 import { useForm } from "@tanstack/react-form";
 import { Mail } from "lucide-react";
 import { lazy } from "react";
@@ -112,10 +112,19 @@ export function Contact() {
           </div>
 
           <CanvasStage
-            fallback={<ModelFallback />}
+            fallback={
+              <ModelFallback
+                image={IMAGES.CONTACT}
+                alt="Contact 3D Model Fallback"
+              />
+            }
             className="mt-12 aspect-square w-full max-w-[320px]"
           >
-            <ModelCanvas url={MODELS.CUBE} autoRotateSpeed={0.8} margin={1} />
+            <ModelCanvas
+              url={MODELS.CONTACT}
+              autoRotateSpeed={0.8}
+              margin={1}
+            />
           </CanvasStage>
         </div>
 

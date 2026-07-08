@@ -7,7 +7,7 @@ import { CanvasStage } from "@/components/three/canvas-stage";
 import { ModelFallback } from "@/components/three/fallbacks/model-fallback";
 import { Button } from "@/components/ui/button";
 import { resume } from "@/data/resume";
-import { MODELS } from "@/lib/constants";
+import { IMAGES, MODELS } from "@/lib/constants";
 import { lazy } from "react";
 
 const ModelCanvas = lazy(() =>
@@ -77,14 +77,12 @@ export function Hero() {
         {/* 3D object */}
         <div className="lg:col-span-5 xl:col-span-4">
           <CanvasStage
-            fallback={<ModelFallback />}
+            fallback={
+              <ModelFallback image={IMAGES.HERO} alt="Hero 3D Model Fallback" />
+            }
             className="mx-auto aspect-square w-full"
           >
-            <ModelCanvas
-              url={MODELS.FIGURE}
-              autoRotateSpeed={0.5}
-              margin={0.9}
-            />
+            <ModelCanvas url={MODELS.HERO} autoRotateSpeed={0.5} margin={0.9} />
           </CanvasStage>
         </div>
       </div>

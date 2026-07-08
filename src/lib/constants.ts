@@ -1,9 +1,17 @@
 // 3D model paths
 const MODELS = {
-  FIGURE: "/models/figure.glb",
-  CLASSICAL_GREEK_SCULPTURE: "/models/classical_greek_sculpture.glb",
-  CHESS: "/models/chess.glb",
-  CUBE: "/models/cube.glb",
+  HERO: "/models/sections/hero.glb",
+  ABOUT: "/models/sections/about.glb",
+  TECH_STACK: "/models/sections/tech-stack.glb",
+  CONTACT: "/models/sections/contact.glb",
 };
 
-export { MODELS };
+const IMAGES = {
+  LOGO: "/images/logo.webp",
+  HERO: "/images/sections/hero.webp",
+  ABOUT: "/images/sections/about.webp",
+  TECH_STACK: "/images/sections/tech-stack.webp",
+  CONTACT: "/images/sections/contact.webp",
+};
+
+export { IMAGES, MODELS };
