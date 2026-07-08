@@ -24,6 +24,14 @@ export function ClipText({ children, className, delay = 0 }: ClipTextProps) {
     once: true,
   });
 
+  if (lite) {
+    return (
+      <span className={cn("inline-block overflow-hidden align-bottom", className)}>
+        <span className="inline-block">{children}</span>
+      </span>
+    );
+  }
+
   return (
     <span
       ref={ref}
@@ -31,11 +39,9 @@ export function ClipText({ children, className, delay = 0 }: ClipTextProps) {
     >
       <motion.span
         className="inline-block"
-        initial={lite ? false : { y: "110%" }}
-        animate={lite || inView ? { y: "0%" } : undefined}
-        transition={
-          lite ? { duration: 0 } : { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }
-        }
+        initial={{ y: "110%" }}
+        animate={inView ? { y: "0%" } : undefined}
+        transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
       >
         {children}
       </motion.span>
