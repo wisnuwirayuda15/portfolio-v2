@@ -1,10 +1,11 @@
 import {
   createFileRoute,
+  Link,
   redirect,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { ArrowUpRight, LogOut } from "lucide-react";
 
 import { ExperiencePanel } from "@/components/admin/experience-panel";
 import { ProjectsPanel } from "@/components/admin/projects-panel";
@@ -65,6 +66,14 @@ function AdminPage() {
           </div>
           <div className="flex items-center gap-3">
             <MonoLabel>{user.email}</MonoLabel>
+            <Button
+              variant="ghost"
+              size="sm"
+              nativeButton={false}
+              render={<Link to="/" />}
+            >
+              View site <ArrowUpRight className="size-3.5" />
+            </Button>
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="size-3.5" /> Sign out
             </Button>
