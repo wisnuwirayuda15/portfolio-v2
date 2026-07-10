@@ -2,13 +2,13 @@
 
 import { ClipText } from "@/components/editorial/clip-text";
 import { MonoLabel } from "@/components/editorial/mono-label";
-import { GithubIcon, LinkedinIcon } from "@/components/icons";
 import { Section } from "@/components/layout/section";
 import { Reveal } from "@/components/motion/reveal";
 import { CanvasStage } from "@/components/three/canvas-stage";
 import { ModelFallback } from "@/components/three/fallbacks/model-fallback";
 import { Button } from "@/components/ui/button";
 import { resume } from "@/data/resume";
+import { usePortfolioContent } from "@/lib/content";
 import { IMAGES, MODELS } from "@/lib/constants";
 import { useForm } from "@tanstack/react-form";
 import { Mail } from "lucide-react";
@@ -34,7 +34,8 @@ function FieldError({ errors }: { errors: Array<string | undefined> }) {
 
 export function Contact() {
   const { email } = resume.identity;
-  const { invite, socials } = resume.contact;
+  const { invite } = resume.contact;
+  const { socials } = usePortfolioContent();
 
   const form = useForm({
     defaultValues: { name: "", email: "", message: "" },
@@ -59,11 +60,6 @@ export function Contact() {
       }
     },
   });
-
-  const socialEntries = [
-    { label: "GitHub", value: socials.github, Icon: GithubIcon },
-    { label: "LinkedIn", value: socials.linkedin, Icon: LinkedinIcon },
-  ].filter((s) => !s.value.startsWith("["));
 
   return (
     <Section id="contact">
@@ -97,16 +93,16 @@ export function Contact() {
               <Mail className="size-4" />
               <span className="font-mono text-sm">{email}</span>
             </a>
-            {socialEntries.map((s) => (
+            {socials.map((s) => (
               <a
-                key={s.label}
-                href={s.value}
+                key={s.name}
+                href={s.url}
                 target="_blank"
                 rel="noreferrer"
                 className="flex min-h-11 items-center gap-3 border-b border-border text-foreground transition-colors hover:text-accent-blue"
               >
-                <s.Icon className="size-4" />
-                <span className="font-mono text-sm">{s.label}</span>
+                <img src={s.iconSvg} alt="" aria-hidden className="size-4" />
+                <span className="font-mono text-sm">{s.name}</span>
               </a>
             ))}
           </div>

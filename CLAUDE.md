@@ -27,9 +27,14 @@ Never `pnpm`/`npm`.
 - **Imports:** `@/*` or `#/*` → `src/*`.
 - Match surrounding style; let Biome format. No reflexive `useMemo`/`useCallback` — React Compiler is on.
 
-## Content is data — single source of truth
+## Content is data
 
-**ALL copy in `src/data/resume.ts`** as typed consts (`satisfies Resume`). Never hardcode content in components. Includes `projects`, `stats`, `process`, plus identity/about/experience/skills/contact/footer. Import `import { resume, type Project } from "#/data/resume"`. Project images live in `/public`; render a monochrome placeholder when missing (never a broken `<img>`).
+Never hardcode content in components. Two sources:
+
+- **Supabase** (project `omgywqbxxvcfshpoxerh`) owns `projects`, `stats`, `tech_stacks` (skills), `experience`, `socials`, and the resume Drive file id. Consumed via `src/lib/content.ts` — `contentQuery` + `usePortfolioContent()`; public routes `ensureQueryData` in their loader so it's SSR-dehydrated. Edited at `/admin` (email+password, single account, signups disabled; RLS = public read, writes pinned to the admin email). Env: `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (`.env`, see `.env.example`). Project images upload to the public `project-images` Storage bucket.
+- **`src/data/resume.ts`** stays the typed source (`satisfies Resume`) for static copy (identity/hero/about/process/contact copy/footer) **and** the baked-in fallback for the DB-backed slices when Supabase is unreachable — keep its shapes in sync with the row mapping in `content.ts`.
+
+Render a monochrome placeholder when a project image is missing (never a broken `<img>`).
 
 ## SSR rule (critical)
 

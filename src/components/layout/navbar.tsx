@@ -19,7 +19,13 @@ export const NAV_LINKS = [
 
 const IDS = NAV_LINKS.map((l) => l.href.slice(1));
 
-export function Navbar() {
+interface NavbarProps {
+  /** Off-landing pages pass absolute variants ("/#work") so hash links resolve. */
+  links?: { href: string; label: string }[];
+  homeHref?: string;
+}
+
+export function Navbar({ links = NAV_LINKS, homeHref = "#home" }: NavbarProps) {
   const scrolled = useScrolled();
   const active = useActiveSection(IDS);
   const { isLiteMode } = usePerformanceMode();
@@ -38,7 +44,7 @@ export function Navbar() {
           : "h-16 w-full max-w-[1400px] border-b border-transparent px-5 md:px-10 lg:px-16",
         )}
       >
-        <a href="#home" className="flex items-center gap-2">
+        <a href={homeHref} className="flex items-center gap-2">
           <img
             src={IMAGES.LOGO}
             alt="logo"
@@ -53,7 +59,7 @@ export function Navbar() {
         </a>
 
         <div className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((l) => {
+          {links.map((l) => {
             const isActive = active === l.href.slice(1);
             return (
               <a
@@ -77,7 +83,7 @@ export function Navbar() {
             <PerfToggle />
           </div>
           <div className="md:hidden">
-            <MobileNav links={NAV_LINKS} />
+            <MobileNav links={links} />
           </div>
         </div>
       </nav>

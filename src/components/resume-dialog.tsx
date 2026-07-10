@@ -7,16 +7,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { resume } from "@/data/resume";
+import { usePortfolioContent } from "@/lib/content";
 import { Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-const id = resume.identity.resumeFileId;
-const driveUrl = `https://drive.google.com/file/d/${id}/view`;
-const previewUrl = `https://drive.google.com/file/d/${id}/preview`;
-const downloadUrl = `https://drive.google.com/uc?export=download&id=${id}`;
-
 export function ResumeDialog() {
+  const { resumeFileId: id } = usePortfolioContent();
+  const driveUrl = `https://drive.google.com/file/d/${id}/view`;
+  const previewUrl = `https://drive.google.com/file/d/${id}/preview`;
+  const downloadUrl = `https://drive.google.com/uc?export=download&id=${id}`;
+
   const handleDownload = () => {
     const link = document.createElement("a");
     link.href = downloadUrl;

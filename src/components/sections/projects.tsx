@@ -1,131 +1,45 @@
 "use client";
 
+import { Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 
-import { resume, type Project } from "@/data/resume";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { Reveal } from "@/components/motion/reveal";
-import { MonoLabel } from "@/components/editorial/mono-label";
-import { useTilt } from "@/hooks/use-tilt";
-import { cn } from "@/lib/utils";
-
-function Thumb({ project }: { project: Project }) {
-  return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-foreground">
-      {project.image ? (
-        <img
-          src={project.image}
-          alt={project.title}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <div
-          className="flex h-full w-full items-end p-5"
-          style={{
-            background:
-              "radial-gradient(circle at 75% 15%, #3a3933 0%, #1c1b16 50%, #0c0b08 100%)",
-          }}
-        >
-          <span className="font-heading text-[6rem] leading-none font-bold text-background/15">
-            {project.index}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProjectCard({
-  project,
-  featured,
-}: {
-  project: Project;
-  featured?: boolean;
-}) {
-  const tilt = useTilt();
-  return (
-    <div
-      ref={tilt.ref}
-      onMouseMove={tilt.onMove}
-      onMouseLeave={tilt.onLeave}
-      className={cn(
-        "group/card transition-transform duration-300 ease-out [transform-style:preserve-3d]",
-        featured && "md:col-span-2",
-      )}
-    >
-      <a
-        href={project.href ?? "#contact"}
-        target={project.href ? "_blank" : undefined}
-        rel={project.href ? "noreferrer" : undefined}
-        className={cn(
-          "block",
-          featured && "md:grid md:grid-cols-2 md:items-center md:gap-8",
-        )}
-      >
-        <Thumb project={project} />
-        <div className={cn("pt-5", featured && "md:pt-0")}>
-          <div className="flex items-center justify-between">
-            <MonoLabel>{`(${project.index})`}</MonoLabel>
-            <MonoLabel>{project.year}</MonoLabel>
-          </div>
-          <h3
-            className={cn(
-              "mt-3 font-heading font-bold tracking-tight",
-              featured ? "text-3xl md:text-5xl" : "text-2xl",
-            )}
-          >
-            <span className="inline-flex items-center gap-2">
-              {project.title}
-              <ArrowUpRight className="size-5 -translate-y-px opacity-0 transition-opacity group-hover/card:opacity-100" />
-            </span>
-          </h3>
-          <p
-            className={cn(
-              "mt-3 text-muted-foreground",
-              featured ? "max-w-lg text-base md:text-lg" : "text-sm",
-            )}
-          >
-            {project.blurb}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1">
-            {project.stack.map((s) => (
-              <span
-                key={s}
-                className="font-mono text-xs tracking-wider text-foreground/70 uppercase"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-          <div className="mt-3">
-            <MonoLabel className="text-foreground/50">{project.role}</MonoLabel>
-          </div>
-        </div>
-      </a>
-    </div>
-  );
-}
+import { ProjectCard } from "@/components/project-card";
+import { usePortfolioContent } from "@/lib/content";
 
 export function Projects() {
-  const featured = resume.projects.find((p) => p.featured);
-  const rest = resume.projects.filter((p) => !p.featured);
+  const { projects } = usePortfolioContent();
+  // Projects arrive pre-sorted (featured first, then sort order);
+  // the landing page shows only the top two.
+  const shown = projects.slice(0, 2);
 
   return (
     <Section id="work">
       <SectionHeader index="03" eyebrow="Selected Work" title="Featured projects" />
       <div className="mt-14 grid grid-cols-1 gap-x-8 gap-y-14 md:grid-cols-2">
-        {featured && (
-          <Reveal className="md:col-span-2">
-            <ProjectCard project={featured} featured />
-          </Reveal>
-        )}
-        {rest.map((project, i) => (
-          <Reveal key={project.index} delay={i * 0.05}>
-            <ProjectCard project={project} />
+        {shown.map((project, i) => (
+          <Reveal
+            key={project.title}
+            delay={i * 0.05}
+            className={project.featured ? "md:col-span-2" : undefined}
+          >
+            <ProjectCard project={project} featured={project.featured} />
           </Reveal>
         ))}
       </div>
+      <Reveal className="mt-14 border-y border-border">
+        <Link
+          to="/projects"
+          preload="intent"
+          className="group flex min-h-12 items-center justify-between py-4 transition-colors hover:text-accent-blue"
+        >
+          <span className="font-mono text-xs tracking-[0.18em] uppercase">
+            View all projects ({projects.length})
+          </span>
+          <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+        </Link>
+      </Reveal>
     </Section>
   );
 }

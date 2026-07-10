@@ -1,18 +1,19 @@
 "use client";
 
-import { resume } from "@/data/resume";
 import { Section, SectionHeader } from "@/components/layout/section";
 import { Reveal } from "@/components/motion/reveal";
 import { MonoLabel } from "@/components/editorial/mono-label";
+import { usePortfolioContent } from "@/lib/content";
 import { cn } from "@/lib/utils";
 
 export function Experience() {
+  const { experience } = usePortfolioContent();
   return (
     <Section id="experience">
       <SectionHeader index="06" eyebrow="Track Record" title="Where I've worked" />
 
       <div className="mt-14 border-t border-border">
-        {resume.experience.map((job) => (
+        {experience.map((job) => (
           <Reveal key={`${job.company}-${job.role}`}>
             <article className="grid grid-cols-1 gap-4 border-b border-border py-8 md:grid-cols-12 md:gap-8">
               <div className="md:col-span-3">

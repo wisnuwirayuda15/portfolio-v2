@@ -10,13 +10,18 @@ export function SplashScreen() {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
 
+  // Play once per tab session, so hash navigation from other pages
+  // (e.g. /projects -> /#work) isn't hijacked by the splash scroll reset.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      if ("scrollRestoration" in window.history) {
-        window.history.scrollRestoration = "manual";
-      }
-      window.scrollTo(0, 0);
+    if (sessionStorage.getItem("splash-played")) {
+      setProgress(100);
+      setDone(true);
+      return;
     }
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
@@ -34,6 +39,7 @@ export function SplashScreen() {
   }, [done]);
 
   useEffect(() => {
+    if (sessionStorage.getItem("splash-played")) return;
     const DURATION = 1100;
     let raf = 0;
     let start = 0;
@@ -43,7 +49,11 @@ export function SplashScreen() {
       // ease-out cubic
       setProgress(Math.round((1 - (1 - p) ** 3) * 100));
       if (p < 1) raf = requestAnimationFrame(tick);
-      else raf = window.setTimeout(() => setDone(true), 220) as unknown as number;
+      else
+        raf = window.setTimeout(() => {
+          sessionStorage.setItem("splash-played", "1");
+          setDone(true);
+        }, 220) as unknown as number;
     };
     raf = requestAnimationFrame(tick);
     return () => {

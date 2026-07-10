@@ -11,25 +11,18 @@ import { TechStack } from "@/components/sections/tech-stack";
 import { Experience } from "@/components/sections/experience";
 import { Process } from "@/components/sections/process";
 import { Contact } from "@/components/sections/contact";
+import { Grain } from "@/components/grain";
 import { MouseFollower } from "@/components/mouse-follower";
 import { ScrollCue } from "@/components/scroll-cue";
 import { SectionProgress } from "@/components/section-progress";
 import { SplashScreen } from "@/components/splash-screen";
-import { usePerformanceMode } from "@/hooks/use-performance-mode";
+import { contentQuery } from "@/lib/content";
 import { autoDetectLite, usePerfStore } from "@/lib/perf-store";
 
-export const Route = createFileRoute("/")({ component: Home });
-
-function Grain() {
-  const { isLiteMode } = usePerformanceMode();
-  if (isLiteMode) return null;
-  return (
-    <div
-      aria-hidden
-      className="grain pointer-events-none fixed inset-0 z-[1] opacity-[0.035] mix-blend-multiply"
-    />
-  );
-}
+export const Route = createFileRoute("/")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(contentQuery),
+  component: Home,
+});
 
 function Home() {
   useEffect(() => {
