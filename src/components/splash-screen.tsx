@@ -9,12 +9,14 @@ import { cn } from "@/lib/utils";
 export function SplashScreen() {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
+  const [skipped, setSkipped] = useState(false);
 
-  // Play once per tab session, so hash navigation from other pages
-  // (e.g. /projects -> /#work) isn't hijacked by the splash scroll reset.
+  // Play once per tab session, so navigation back to the landing page
+  // (client-side or hash links from other pages) isn't hijacked by the
+  // splash overlay and its scroll reset.
   useEffect(() => {
     if (sessionStorage.getItem("splash-played")) {
-      setProgress(100);
+      setSkipped(true);
       setDone(true);
       return;
     }
@@ -61,6 +63,8 @@ export function SplashScreen() {
       clearTimeout(raf);
     };
   }, []);
+
+  if (skipped) return null;
 
   return (
     <div

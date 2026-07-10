@@ -11,6 +11,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { MonoLabel } from "@/components/editorial/mono-label";
+import { NavAnchor } from "@/components/layout/navbar";
 import { PerfToggle } from "@/components/perf/perf-toggle";
 
 export function MobileNav({
@@ -33,14 +34,14 @@ export function MobileNav({
         </SheetTitle>
         <nav className="flex flex-col p-4">
           {links.map((l) => (
-            <a
+            <NavAnchor
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
               className="flex min-h-12 items-center border-b border-border font-heading text-lg font-medium transition-colors hover:text-accent-blue"
             >
               {l.label}
-            </a>
+            </NavAnchor>
           ))}
         </nav>
         <div className="mt-auto border-t border-border p-6">
