@@ -9,25 +9,19 @@ import {
   FormField,
 } from "@/components/admin/crud-scaffold";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { SortableTable } from "@/components/admin/sortable-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
 
 type ProjectRow = RowOf<"projects">;
 
 export function ProjectsPanel() {
-  const { list, save, remove } = useAdminTable("projects");
+  const { list, save, remove, reorder } = useAdminTable("projects");
   const [editing, setEditing] = useState<ProjectRow | "new" | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const row = editing === "new" ? null : editing;
@@ -53,7 +47,7 @@ export function ProjectsPanel() {
           href: String(fd.get("href") ?? "").trim() || null,
           featured: fd.get("featured") === "on",
           image_url: imageUrl,
-          sort_order: Number(fd.get("sort_order")),
+          ...(row ? {} : { sort_order: list.data?.length ?? 0 }),
         },
       },
       { onSuccess: () => setEditing(null) },
@@ -71,45 +65,41 @@ export function ProjectsPanel() {
           <Plus /> Add project
         </Button>
       </div>
-      <Table className="mt-4">
-        <TableHeader>
-          <TableRow>
+      <SortableTable
+        items={list.data}
+        onReorder={(rows) => reorder.mutate(rows)}
+        head={
+          <>
             <TableHead>Title</TableHead>
             <TableHead className="w-20">Year</TableHead>
             <TableHead className="w-24">Featured</TableHead>
-            <TableHead className="w-20">Order</TableHead>
             <TableHead className="w-24" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.data.map((project) => (
-            <TableRow key={project.id}>
-              <TableCell className="max-w-56 truncate font-medium">
-                {project.title}
-              </TableCell>
-              <TableCell>{project.year}</TableCell>
-              <TableCell>
-                {project.featured && <Badge>Featured</Badge>}
-              </TableCell>
-              <TableCell>{project.sort_order}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${project.title}`}
-                  onClick={() => openEditor(project)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <DeleteIconButton
-                  entity={project.title}
-                  onConfirm={() => remove.mutate(project.id)}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </>
+        }
+        renderRow={(project) => (
+          <>
+            <TableCell className="max-w-56 truncate font-medium">
+              {project.title}
+            </TableCell>
+            <TableCell>{project.year}</TableCell>
+            <TableCell>{project.featured && <Badge>Featured</Badge>}</TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${project.title}`}
+                onClick={() => openEditor(project)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <DeleteIconButton
+                entity={project.title}
+                onConfirm={() => remove.mutate(project.id)}
+              />
+            </TableCell>
+          </>
+        )}
+      />
 
       <EntityDialog
         key={row?.id ?? "new"}
@@ -171,25 +161,15 @@ export function ProjectsPanel() {
         <FormField label="Image">
           <ImageUploadField value={imageUrl} onChange={setImageUrl} />
         </FormField>
-        <div className="grid grid-cols-2 items-end gap-4">
-          <FormField label="Sort order" htmlFor="project-sort">
-            <Input
-              id="project-sort"
-              name="sort_order"
-              type="number"
-              defaultValue={row?.sort_order ?? 0}
-            />
-          </FormField>
-          <label className="flex min-h-9 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="featured"
-              defaultChecked={row?.featured ?? false}
-              className="size-4 accent-foreground"
-            />
-            Featured
-          </label>
-        </div>
+        <label className="flex min-h-9 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="featured"
+            defaultChecked={row?.featured ?? false}
+            className="size-4 accent-foreground"
+          />
+          Featured
+        </label>
       </EntityDialog>
     </div>
   );

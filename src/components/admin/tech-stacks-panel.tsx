@@ -8,24 +8,18 @@ import {
   EntityDialog,
   FormField,
 } from "@/components/admin/crud-scaffold";
+import { SortableTable } from "@/components/admin/sortable-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
 
 type TechStackRow = RowOf<"tech_stacks">;
 
 export function TechStacksPanel() {
-  const { list, save, remove } = useAdminTable("tech_stacks");
+  const { list, save, remove, reorder } = useAdminTable("tech_stacks");
   const [editing, setEditing] = useState<TechStackRow | "new" | null>(null);
   const row = editing === "new" ? null : editing;
 
@@ -39,7 +33,7 @@ export function TechStacksPanel() {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
-          sort_order: Number(fd.get("sort_order")),
+          ...(row ? {} : { sort_order: list.data?.length ?? 0 }),
         },
       },
       { onSuccess: () => setEditing(null) },
@@ -57,41 +51,39 @@ export function TechStacksPanel() {
           <Plus /> Add category
         </Button>
       </div>
-      <Table className="mt-4">
-        <TableHeader>
-          <TableRow>
+      <SortableTable
+        items={list.data}
+        onReorder={(rows) => reorder.mutate(rows)}
+        head={
+          <>
             <TableHead className="w-32">Category</TableHead>
             <TableHead>Skills</TableHead>
-            <TableHead className="w-20">Order</TableHead>
             <TableHead className="w-24" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.data.map((group) => (
-            <TableRow key={group.id}>
-              <TableCell className="font-medium">{group.category}</TableCell>
-              <TableCell className="max-w-72 truncate text-muted-foreground">
-                {group.skills.join(", ")}
-              </TableCell>
-              <TableCell>{group.sort_order}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${group.category}`}
-                  onClick={() => setEditing(group)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <DeleteIconButton
-                  entity={group.category}
-                  onConfirm={() => remove.mutate(group.id)}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </>
+        }
+        renderRow={(group) => (
+          <>
+            <TableCell className="font-medium">{group.category}</TableCell>
+            <TableCell className="max-w-72 truncate text-muted-foreground">
+              {group.skills.join(", ")}
+            </TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${group.category}`}
+                onClick={() => setEditing(group)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <DeleteIconButton
+                entity={group.category}
+                onConfirm={() => remove.mutate(group.id)}
+              />
+            </TableCell>
+          </>
+        )}
+      />
 
       <EntityDialog
         key={row?.id ?? "new"}
@@ -118,14 +110,6 @@ export function TechStacksPanel() {
             required
             placeholder="HTML, CSS, JavaScript"
             defaultValue={row?.skills.join(", ") ?? ""}
-          />
-        </FormField>
-        <FormField label="Sort order" htmlFor="stack-sort">
-          <Input
-            id="stack-sort"
-            name="sort_order"
-            type="number"
-            defaultValue={row?.sort_order ?? 0}
           />
         </FormField>
       </EntityDialog>

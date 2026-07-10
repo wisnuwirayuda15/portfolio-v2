@@ -75,5 +75,30 @@ export function useAdminTable<T extends CrudTable>(table: T) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { list, save, remove };
+  /** Persist a drag-reorder: sort_order = array index. Optimistic — the
+   * list snaps to the new order immediately, refetches on failure. */
+  const reorder = useMutation({
+    mutationFn: async (ordered: RowOf<T>[]) => {
+      const results = await Promise.all(
+        ordered.map((row, i) =>
+          db().from(table).update({ sort_order: i }).eq("id", row.id),
+        ),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+    onMutate: (ordered) => {
+      queryClient.setQueryData(
+        ["admin", table],
+        ordered.map((row, i) => ({ ...row, sort_order: i })),
+      );
+    },
+    onSuccess: invalidate,
+    onError: (e: Error) => {
+      toast.error(e.message);
+      queryClient.invalidateQueries({ queryKey: ["admin", table] });
+    },
+  });
+
+  return { list, save, remove, reorder };
 }

@@ -9,24 +9,18 @@ import {
   EntityDialog,
   FormField,
 } from "@/components/admin/crud-scaffold";
+import { SortableTable } from "@/components/admin/sortable-table";
 import { SvgIconField } from "@/components/admin/svg-icon-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead } from "@/components/ui/table";
 import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
 
 type SocialRow = RowOf<"socials">;
 
 export function SocialsPanel() {
-  const { list, save, remove } = useAdminTable("socials");
+  const { list, save, remove, reorder } = useAdminTable("socials");
   const [editing, setEditing] = useState<SocialRow | "new" | null>(null);
   const [iconSvg, setIconSvg] = useState("");
   const row = editing === "new" ? null : editing;
@@ -48,7 +42,7 @@ export function SocialsPanel() {
           name: String(fd.get("name") ?? "").trim(),
           url: String(fd.get("url") ?? "").trim(),
           icon_svg: iconSvg,
-          sort_order: Number(fd.get("sort_order")),
+          ...(row ? {} : { sort_order: list.data?.length ?? 0 }),
         },
       },
       { onSuccess: () => setEditing(null) },
@@ -66,45 +60,43 @@ export function SocialsPanel() {
           <Plus /> Add social
         </Button>
       </div>
-      <Table className="mt-4">
-        <TableHeader>
-          <TableRow>
+      <SortableTable
+        items={list.data}
+        onReorder={(rows) => reorder.mutate(rows)}
+        head={
+          <>
             <TableHead className="w-12">Icon</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>URL</TableHead>
-            <TableHead className="w-20">Order</TableHead>
             <TableHead className="w-24" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.data.map((social) => (
-            <TableRow key={social.id}>
-              <TableCell>
-                <img src={social.icon_svg} alt="" className="size-5" />
-              </TableCell>
-              <TableCell className="font-medium">{social.name}</TableCell>
-              <TableCell className="max-w-56 truncate text-muted-foreground">
-                {social.url}
-              </TableCell>
-              <TableCell>{social.sort_order}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${social.name}`}
-                  onClick={() => openEditor(social)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <DeleteIconButton
-                  entity={social.name}
-                  onConfirm={() => remove.mutate(social.id)}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </>
+        }
+        renderRow={(social) => (
+          <>
+            <TableCell>
+              <img src={social.icon_svg} alt="" className="size-5" />
+            </TableCell>
+            <TableCell className="font-medium">{social.name}</TableCell>
+            <TableCell className="max-w-56 truncate text-muted-foreground">
+              {social.url}
+            </TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${social.name}`}
+                onClick={() => openEditor(social)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <DeleteIconButton
+                entity={social.name}
+                onConfirm={() => remove.mutate(social.id)}
+              />
+            </TableCell>
+          </>
+        )}
+      />
 
       <EntityDialog
         key={row?.id ?? "new"}
@@ -135,14 +127,6 @@ export function SocialsPanel() {
         </FormField>
         <FormField label="Icon (SVG)">
           <SvgIconField value={iconSvg} onChange={setIconSvg} />
-        </FormField>
-        <FormField label="Sort order" htmlFor="social-sort">
-          <Input
-            id="social-sort"
-            name="sort_order"
-            type="number"
-            defaultValue={row?.sort_order ?? 0}
-          />
         </FormField>
       </EntityDialog>
     </div>

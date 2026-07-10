@@ -8,23 +8,17 @@ import {
   EntityDialog,
   FormField,
 } from "@/components/admin/crud-scaffold";
+import { SortableTable } from "@/components/admin/sortable-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead } from "@/components/ui/table";
 import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
 
 type StatRow = RowOf<"stats">;
 
 export function StatsPanel() {
-  const { list, save, remove } = useAdminTable("stats");
+  const { list, save, remove, reorder } = useAdminTable("stats");
   const [editing, setEditing] = useState<StatRow | "new" | null>(null);
   const row = editing === "new" ? null : editing;
 
@@ -36,7 +30,7 @@ export function StatsPanel() {
           value: Number(fd.get("value")),
           suffix: String(fd.get("suffix") ?? "").trim() || null,
           label: String(fd.get("label") ?? "").trim(),
-          sort_order: Number(fd.get("sort_order")),
+          ...(row ? {} : { sort_order: list.data?.length ?? 0 }),
         },
       },
       { onSuccess: () => setEditing(null) },
@@ -54,42 +48,40 @@ export function StatsPanel() {
           <Plus /> Add stat
         </Button>
       </div>
-      <Table className="mt-4">
-        <TableHeader>
-          <TableRow>
+      <SortableTable
+        items={list.data}
+        onReorder={(rows) => reorder.mutate(rows)}
+        head={
+          <>
             <TableHead>Value</TableHead>
             <TableHead>Label</TableHead>
-            <TableHead className="w-20">Order</TableHead>
             <TableHead className="w-24" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.data.map((stat) => (
-            <TableRow key={stat.id}>
-              <TableCell className="font-mono">
-                {stat.value.toLocaleString()}
-                {stat.suffix}
-              </TableCell>
-              <TableCell>{stat.label}</TableCell>
-              <TableCell>{stat.sort_order}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${stat.label}`}
-                  onClick={() => setEditing(stat)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <DeleteIconButton
-                  entity={stat.label}
-                  onConfirm={() => remove.mutate(stat.id)}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </>
+        }
+        renderRow={(stat) => (
+          <>
+            <TableCell className="font-mono">
+              {stat.value.toLocaleString()}
+              {stat.suffix}
+            </TableCell>
+            <TableCell>{stat.label}</TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${stat.label}`}
+                onClick={() => setEditing(stat)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <DeleteIconButton
+                entity={stat.label}
+                onConfirm={() => remove.mutate(stat.id)}
+              />
+            </TableCell>
+          </>
+        )}
+      />
 
       <EntityDialog
         key={row?.id ?? "new"}
@@ -122,14 +114,6 @@ export function StatsPanel() {
             name="label"
             required
             defaultValue={row?.label ?? ""}
-          />
-        </FormField>
-        <FormField label="Sort order" htmlFor="stat-sort">
-          <Input
-            id="stat-sort"
-            name="sort_order"
-            type="number"
-            defaultValue={row?.sort_order ?? 0}
           />
         </FormField>
       </EntityDialog>

@@ -8,25 +8,19 @@ import {
   EntityDialog,
   FormField,
 } from "@/components/admin/crud-scaffold";
+import { SortableTable } from "@/components/admin/sortable-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableHead } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
 
 type JobRow = RowOf<"experience">;
 
 export function ExperiencePanel() {
-  const { list, save, remove } = useAdminTable("experience");
+  const { list, save, remove, reorder } = useAdminTable("experience");
   const [editing, setEditing] = useState<JobRow | "new" | null>(null);
   const row = editing === "new" ? null : editing;
 
@@ -45,7 +39,7 @@ export function ExperiencePanel() {
             .map((s) => s.trim())
             .filter(Boolean),
           featured: fd.get("featured") === "on",
-          sort_order: Number(fd.get("sort_order")),
+          ...(row ? {} : { sort_order: list.data?.length ?? 0 }),
         },
       },
       { onSuccess: () => setEditing(null) },
@@ -63,47 +57,45 @@ export function ExperiencePanel() {
           <Plus /> Add role
         </Button>
       </div>
-      <Table className="mt-4">
-        <TableHeader>
-          <TableRow>
+      <SortableTable
+        items={list.data}
+        onReorder={(rows) => reorder.mutate(rows)}
+        head={
+          <>
             <TableHead>Role</TableHead>
             <TableHead>Company</TableHead>
             <TableHead className="w-40">Period</TableHead>
-            <TableHead className="w-20">Order</TableHead>
             <TableHead className="w-24" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.data.map((job) => (
-            <TableRow key={job.id}>
-              <TableCell className="max-w-48 truncate font-medium">
-                {job.role} {job.featured && <Badge>Current</Badge>}
-              </TableCell>
-              <TableCell className="max-w-40 truncate text-muted-foreground">
-                {job.company}
-              </TableCell>
-              <TableCell className="font-mono text-xs">
-                {job.start_date} — {job.end_date}
-              </TableCell>
-              <TableCell>{job.sort_order}</TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Edit ${job.role}`}
-                  onClick={() => setEditing(job)}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-                <DeleteIconButton
-                  entity={job.role}
-                  onConfirm={() => remove.mutate(job.id)}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </>
+        }
+        renderRow={(job) => (
+          <>
+            <TableCell className="max-w-48 truncate font-medium">
+              {job.role} {job.featured && <Badge>Current</Badge>}
+            </TableCell>
+            <TableCell className="max-w-40 truncate text-muted-foreground">
+              {job.company}
+            </TableCell>
+            <TableCell className="font-mono text-xs">
+              {job.start_date} — {job.end_date}
+            </TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Edit ${job.role}`}
+                onClick={() => setEditing(job)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <DeleteIconButton
+                entity={job.role}
+                onConfirm={() => remove.mutate(job.id)}
+              />
+            </TableCell>
+          </>
+        )}
+      />
 
       <EntityDialog
         key={row?.id ?? "new"}
@@ -163,25 +155,15 @@ export function ExperiencePanel() {
             defaultValue={row?.highlights.join("\n") ?? ""}
           />
         </FormField>
-        <div className="grid grid-cols-2 items-end gap-4">
-          <FormField label="Sort order" htmlFor="job-sort">
-            <Input
-              id="job-sort"
-              name="sort_order"
-              type="number"
-              defaultValue={row?.sort_order ?? 0}
-            />
-          </FormField>
-          <label className="flex min-h-9 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="featured"
-              defaultChecked={row?.featured ?? false}
-              className="size-4 accent-foreground"
-            />
-            Current role
-          </label>
-        </div>
+        <label className="flex min-h-9 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="featured"
+            defaultChecked={row?.featured ?? false}
+            className="size-4 accent-foreground"
+          />
+          Current role
+        </label>
       </EntityDialog>
     </div>
   );
