@@ -5,8 +5,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
+  BulkDeleteButton,
   DeleteIconButton,
-  EntityDialog,
+  EntityDrawer,
   FormField,
 } from "@/components/admin/crud-scaffold";
 import { SortableTable } from "@/components/admin/sortable-table";
@@ -15,12 +16,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableHead } from "@/components/ui/table";
-import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
+import {
+  type RowOf,
+  useAdminTable,
+  useRowSelection,
+} from "@/hooks/use-admin-crud";
 
 type SocialRow = RowOf<"socials">;
 
 export function SocialsPanel() {
-  const { list, save, remove, reorder } = useAdminTable("socials");
+  const { list, save, remove, removeMany, reorder } = useAdminTable("socials");
+  const selection = useRowSelection(list.data);
   const [editing, setEditing] = useState<SocialRow | "new" | null>(null);
   const [iconSvg, setIconSvg] = useState("");
   const row = editing === "new" ? null : editing;
@@ -55,7 +61,14 @@ export function SocialsPanel() {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <BulkDeleteButton
+          count={selection.ids.length}
+          pending={removeMany.isPending}
+          onConfirm={() =>
+            removeMany.mutate(selection.ids, { onSuccess: selection.clear })
+          }
+        />
         <Button size="sm" onClick={() => openEditor("new")}>
           <Plus /> Add social
         </Button>
@@ -63,11 +76,13 @@ export function SocialsPanel() {
       <SortableTable
         items={list.data}
         onReorder={(rows) => reorder.mutate(rows)}
+        selected={selection.selected}
+        onSelectedChange={selection.setSelected}
         head={
           <>
             <TableHead className="w-12">Icon</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead>URL</TableHead>
+            <TableHead className="hidden sm:table-cell">URL</TableHead>
             <TableHead className="w-24" />
           </>
         }
@@ -77,7 +92,7 @@ export function SocialsPanel() {
               <img src={social.icon_svg} alt="" className="size-5" />
             </TableCell>
             <TableCell className="font-medium">{social.name}</TableCell>
-            <TableCell className="max-w-56 truncate text-muted-foreground">
+            <TableCell className="hidden max-w-56 truncate text-muted-foreground sm:table-cell">
               {social.url}
             </TableCell>
             <TableCell className="text-right">
@@ -98,7 +113,7 @@ export function SocialsPanel() {
         )}
       />
 
-      <EntityDialog
+      <EntityDrawer
         key={row?.id ?? "new"}
         title={row ? "Edit social" : "Add social"}
         open={editing !== null}
@@ -128,7 +143,7 @@ export function SocialsPanel() {
         <FormField label="Icon (SVG)">
           <SvgIconField value={iconSvg} onChange={setIconSvg} />
         </FormField>
-      </EntityDialog>
+      </EntityDrawer>
     </div>
   );
 }

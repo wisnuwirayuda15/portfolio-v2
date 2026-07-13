@@ -57,36 +57,42 @@ function AdminPage() {
   return (
     <main className="min-h-screen px-5 py-10 md:px-10">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
+        <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <MonoLabel>Portfolio</MonoLabel>
             <h1 className="mt-1 font-heading text-3xl font-bold tracking-tight">
               Admin
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <MonoLabel>{user.email}</MonoLabel>
-            <Button
-              variant="ghost"
-              size="sm"
-              nativeButton={false}
-              render={<Link to="/" />}
-            >
-              View site <ArrowUpRight className="size-3.5" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="size-3.5" /> Sign out
-            </Button>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <MonoLabel className="max-w-full truncate">{user.email}</MonoLabel>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                nativeButton={false}
+                render={<Link to="/" />}
+              >
+                View site <ArrowUpRight className="size-3.5" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={signOut}>
+                <LogOut className="size-3.5" /> Sign out
+              </Button>
+            </div>
           </div>
         </header>
 
         <Tabs defaultValue="projects" className="mt-8">
           <TabsList
             variant="line"
-            className="w-full justify-start overflow-x-auto"
+            className="h-auto w-full flex-wrap justify-start"
           >
             {TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="flex-none"
+              >
                 {tab.label}
               </TabsTrigger>
             ))}

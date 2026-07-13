@@ -4,8 +4,9 @@ import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 
 import {
+  BulkDeleteButton,
   DeleteIconButton,
-  EntityDialog,
+  EntityDrawer,
   FormField,
 } from "@/components/admin/crud-scaffold";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
@@ -16,12 +17,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableHead } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
+import {
+  type RowOf,
+  useAdminTable,
+  useRowSelection,
+} from "@/hooks/use-admin-crud";
 
 type ProjectRow = RowOf<"projects">;
 
 export function ProjectsPanel() {
-  const { list, save, remove, reorder } = useAdminTable("projects");
+  const { list, save, remove, removeMany, reorder } =
+    useAdminTable("projects");
+  const selection = useRowSelection(list.data);
   const [editing, setEditing] = useState<ProjectRow | "new" | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const row = editing === "new" ? null : editing;
@@ -60,7 +67,14 @@ export function ProjectsPanel() {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <BulkDeleteButton
+          count={selection.ids.length}
+          pending={removeMany.isPending}
+          onConfirm={() =>
+            removeMany.mutate(selection.ids, { onSuccess: selection.clear })
+          }
+        />
         <Button size="sm" onClick={() => openEditor("new")}>
           <Plus /> Add project
         </Button>
@@ -68,11 +82,15 @@ export function ProjectsPanel() {
       <SortableTable
         items={list.data}
         onReorder={(rows) => reorder.mutate(rows)}
+        selected={selection.selected}
+        onSelectedChange={selection.setSelected}
         head={
           <>
             <TableHead>Title</TableHead>
-            <TableHead className="w-20">Year</TableHead>
-            <TableHead className="w-24">Featured</TableHead>
+            <TableHead className="hidden w-20 sm:table-cell">Year</TableHead>
+            <TableHead className="hidden w-24 sm:table-cell">
+              Featured
+            </TableHead>
             <TableHead className="w-24" />
           </>
         }
@@ -81,8 +99,12 @@ export function ProjectsPanel() {
             <TableCell className="max-w-56 truncate font-medium">
               {project.title}
             </TableCell>
-            <TableCell>{project.year}</TableCell>
-            <TableCell>{project.featured && <Badge>Featured</Badge>}</TableCell>
+            <TableCell className="hidden sm:table-cell">
+              {project.year}
+            </TableCell>
+            <TableCell className="hidden sm:table-cell">
+              {project.featured && <Badge>Featured</Badge>}
+            </TableCell>
             <TableCell className="text-right">
               <Button
                 variant="ghost"
@@ -101,7 +123,7 @@ export function ProjectsPanel() {
         )}
       />
 
-      <EntityDialog
+      <EntityDrawer
         key={row?.id ?? "new"}
         title={row ? "Edit project" : "Add project"}
         open={editing !== null}
@@ -170,7 +192,7 @@ export function ProjectsPanel() {
           />
           Featured
         </label>
-      </EntityDialog>
+      </EntityDrawer>
     </div>
   );
 }

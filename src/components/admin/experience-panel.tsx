@@ -4,8 +4,9 @@ import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 
 import {
+  BulkDeleteButton,
   DeleteIconButton,
-  EntityDialog,
+  EntityDrawer,
   FormField,
 } from "@/components/admin/crud-scaffold";
 import { SortableTable } from "@/components/admin/sortable-table";
@@ -15,12 +16,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableHead } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
+import {
+  type RowOf,
+  useAdminTable,
+  useRowSelection,
+} from "@/hooks/use-admin-crud";
 
 type JobRow = RowOf<"experience">;
 
 export function ExperiencePanel() {
-  const { list, save, remove, reorder } = useAdminTable("experience");
+  const { list, save, remove, removeMany, reorder } =
+    useAdminTable("experience");
+  const selection = useRowSelection(list.data);
   const [editing, setEditing] = useState<JobRow | "new" | null>(null);
   const row = editing === "new" ? null : editing;
 
@@ -52,7 +59,14 @@ export function ExperiencePanel() {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <BulkDeleteButton
+          count={selection.ids.length}
+          pending={removeMany.isPending}
+          onConfirm={() =>
+            removeMany.mutate(selection.ids, { onSuccess: selection.clear })
+          }
+        />
         <Button size="sm" onClick={() => setEditing("new")}>
           <Plus /> Add role
         </Button>
@@ -60,11 +74,13 @@ export function ExperiencePanel() {
       <SortableTable
         items={list.data}
         onReorder={(rows) => reorder.mutate(rows)}
+        selected={selection.selected}
+        onSelectedChange={selection.setSelected}
         head={
           <>
             <TableHead>Role</TableHead>
-            <TableHead>Company</TableHead>
-            <TableHead className="w-40">Period</TableHead>
+            <TableHead className="hidden sm:table-cell">Company</TableHead>
+            <TableHead className="hidden w-40 md:table-cell">Period</TableHead>
             <TableHead className="w-24" />
           </>
         }
@@ -73,10 +89,10 @@ export function ExperiencePanel() {
             <TableCell className="max-w-48 truncate font-medium">
               {job.role} {job.featured && <Badge>Current</Badge>}
             </TableCell>
-            <TableCell className="max-w-40 truncate text-muted-foreground">
+            <TableCell className="hidden max-w-40 truncate text-muted-foreground sm:table-cell">
               {job.company}
             </TableCell>
-            <TableCell className="font-mono text-xs">
+            <TableCell className="hidden font-mono text-xs md:table-cell">
               {job.start_date} — {job.end_date}
             </TableCell>
             <TableCell className="text-right">
@@ -97,7 +113,7 @@ export function ExperiencePanel() {
         )}
       />
 
-      <EntityDialog
+      <EntityDrawer
         key={row?.id ?? "new"}
         title={row ? "Edit role" : "Add role"}
         open={editing !== null}
@@ -164,7 +180,7 @@ export function ExperiencePanel() {
           />
           Current role
         </label>
-      </EntityDialog>
+      </EntityDrawer>
     </div>
   );
 }

@@ -4,8 +4,9 @@ import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 
 import {
+  BulkDeleteButton,
   DeleteIconButton,
-  EntityDialog,
+  EntityDrawer,
   FormField,
 } from "@/components/admin/crud-scaffold";
 import { SortableTable } from "@/components/admin/sortable-table";
@@ -14,12 +15,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableHead } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
+import {
+  type RowOf,
+  useAdminTable,
+  useRowSelection,
+} from "@/hooks/use-admin-crud";
 
 type TechStackRow = RowOf<"tech_stacks">;
 
 export function TechStacksPanel() {
-  const { list, save, remove, reorder } = useAdminTable("tech_stacks");
+  const { list, save, remove, removeMany, reorder } =
+    useAdminTable("tech_stacks");
+  const selection = useRowSelection(list.data);
   const [editing, setEditing] = useState<TechStackRow | "new" | null>(null);
   const row = editing === "new" ? null : editing;
 
@@ -46,7 +53,14 @@ export function TechStacksPanel() {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <BulkDeleteButton
+          count={selection.ids.length}
+          pending={removeMany.isPending}
+          onConfirm={() =>
+            removeMany.mutate(selection.ids, { onSuccess: selection.clear })
+          }
+        />
         <Button size="sm" onClick={() => setEditing("new")}>
           <Plus /> Add category
         </Button>
@@ -54,6 +68,8 @@ export function TechStacksPanel() {
       <SortableTable
         items={list.data}
         onReorder={(rows) => reorder.mutate(rows)}
+        selected={selection.selected}
+        onSelectedChange={selection.setSelected}
         head={
           <>
             <TableHead className="w-32">Category</TableHead>
@@ -85,7 +101,7 @@ export function TechStacksPanel() {
         )}
       />
 
-      <EntityDialog
+      <EntityDrawer
         key={row?.id ?? "new"}
         title={row ? "Edit category" : "Add category"}
         open={editing !== null}
@@ -112,7 +128,7 @@ export function TechStacksPanel() {
             defaultValue={row?.skills.join(", ") ?? ""}
           />
         </FormField>
-      </EntityDialog>
+      </EntityDrawer>
     </div>
   );
 }

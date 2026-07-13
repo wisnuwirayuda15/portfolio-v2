@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { getBrowserClient } from "@/lib/supabase/client";
@@ -75,6 +76,18 @@ export function useAdminTable<T extends CrudTable>(table: T) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeMany = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await db().from(table).delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      invalidate();
+      toast.success(`Deleted ${ids.length} item${ids.length > 1 ? "s" : ""}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   /** Persist a drag-reorder: sort_order = array index. Optimistic — the
    * list snaps to the new order immediately, refetches on failure. */
   const reorder = useMutation({
@@ -100,5 +113,15 @@ export function useAdminTable<T extends CrudTable>(table: T) {
     },
   });
 
-  return { list, save, remove, reorder };
+  return { list, save, remove, removeMany, reorder };
+}
+
+/** Row-selection state for bulk actions. `ids` is pruned against the current
+ * rows so deleted rows can't linger in the selection. */
+export function useRowSelection<T extends { id: string }>(
+  rows: T[] | undefined,
+) {
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const ids = rows ? rows.filter((r) => selected.has(r.id)).map((r) => r.id) : [];
+  return { selected, setSelected, ids, clear: () => setSelected(new Set()) };
 }

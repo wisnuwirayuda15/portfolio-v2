@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -72,12 +73,15 @@ function SortableRow({
 }
 
 /** Table whose rows reorder by drag (pointer + keyboard). `onReorder`
- * receives the full re-ordered array; persist sort_order = index there. */
+ * receives the full re-ordered array; persist sort_order = index there.
+ * Pass `selected` + `onSelectedChange` to add a bulk-select checkbox column. */
 export function SortableTable<T extends { id: string }>({
   items,
   onReorder,
   head,
   renderRow,
+  selected,
+  onSelectedChange,
 }: {
   items: T[];
   onReorder: (items: T[]) => void;
@@ -85,7 +89,25 @@ export function SortableTable<T extends { id: string }>({
   head: React.ReactNode;
   /** TableCells for one row, excluding the drag-handle cell. */
   renderRow: (item: T) => React.ReactNode;
+  selected?: ReadonlySet<string>;
+  onSelectedChange?: (next: Set<string>) => void;
 }) {
+  const selectable = selected !== undefined && onSelectedChange !== undefined;
+  const allSelected =
+    selectable && items.length > 0 && items.every((i) => selected.has(i.id));
+
+  const toggleAll = () =>
+    onSelectedChange?.(
+      allSelected ? new Set() : new Set(items.map((i) => i.id)),
+    );
+
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectedChange?.(next);
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -109,6 +131,15 @@ export function SortableTable<T extends { id: string }>({
         <TableHeader>
           <TableRow>
             <TableHead className="w-8" />
+            {selectable && (
+              <TableHead className="w-8 pr-0">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all rows"
+                />
+              </TableHead>
+            )}
             {head}
           </TableRow>
         </TableHeader>
@@ -119,6 +150,15 @@ export function SortableTable<T extends { id: string }>({
           <TableBody>
             {items.map((item) => (
               <SortableRow key={item.id} id={item.id}>
+                {selectable && (
+                  <TableCell className="w-8 pr-0">
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onCheckedChange={() => toggleOne(item.id)}
+                      aria-label="Select row"
+                    />
+                  </TableCell>
+                )}
                 {renderRow(item)}
               </SortableRow>
             ))}

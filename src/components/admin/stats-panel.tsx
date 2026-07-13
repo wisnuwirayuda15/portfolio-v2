@@ -4,8 +4,9 @@ import { Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 
 import {
+  BulkDeleteButton,
   DeleteIconButton,
-  EntityDialog,
+  EntityDrawer,
   FormField,
 } from "@/components/admin/crud-scaffold";
 import { SortableTable } from "@/components/admin/sortable-table";
@@ -13,12 +14,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableHead } from "@/components/ui/table";
-import { type RowOf, useAdminTable } from "@/hooks/use-admin-crud";
+import {
+  type RowOf,
+  useAdminTable,
+  useRowSelection,
+} from "@/hooks/use-admin-crud";
 
 type StatRow = RowOf<"stats">;
 
 export function StatsPanel() {
-  const { list, save, remove, reorder } = useAdminTable("stats");
+  const { list, save, remove, removeMany, reorder } = useAdminTable("stats");
+  const selection = useRowSelection(list.data);
   const [editing, setEditing] = useState<StatRow | "new" | null>(null);
   const row = editing === "new" ? null : editing;
 
@@ -43,7 +49,14 @@ export function StatsPanel() {
 
   return (
     <div>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <BulkDeleteButton
+          count={selection.ids.length}
+          pending={removeMany.isPending}
+          onConfirm={() =>
+            removeMany.mutate(selection.ids, { onSuccess: selection.clear })
+          }
+        />
         <Button size="sm" onClick={() => setEditing("new")}>
           <Plus /> Add stat
         </Button>
@@ -51,6 +64,8 @@ export function StatsPanel() {
       <SortableTable
         items={list.data}
         onReorder={(rows) => reorder.mutate(rows)}
+        selected={selection.selected}
+        onSelectedChange={selection.setSelected}
         head={
           <>
             <TableHead>Value</TableHead>
@@ -83,7 +98,7 @@ export function StatsPanel() {
         )}
       />
 
-      <EntityDialog
+      <EntityDrawer
         key={row?.id ?? "new"}
         title={row ? "Edit stat" : "Add stat"}
         open={editing !== null}
@@ -116,7 +131,7 @@ export function StatsPanel() {
             defaultValue={row?.label ?? ""}
           />
         </FormField>
-      </EntityDialog>
+      </EntityDrawer>
     </div>
   );
 }
